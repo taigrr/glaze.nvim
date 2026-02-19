@@ -133,8 +133,11 @@ require("glaze").setup({
     silent = false,      -- Suppress install notifications
   },
   auto_check = {
-    enabled = true,      -- Auto-check for updates
+    enabled = true,      -- Auto-check for updates (disabling also disables auto_update)
     frequency = "daily", -- "daily", "weekly", or hours as number
+  },
+  auto_update = {
+    enabled = false,     -- Auto-update binaries when newer versions are found (requires auto_check)
   },
 })
 ```

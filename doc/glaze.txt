@@ -156,8 +156,11 @@ Default configuration:
       silent = false,      -- Suppress install notifications
     },
     auto_check = {
-      enabled = true,      -- Auto-check for updates on setup
+      enabled = true,      -- Auto-check for updates (disabling also disables auto_update)
       frequency = "daily", -- "daily", "weekly", or hours (number)
+    },
+    auto_update = {
+      enabled = false,     -- Auto-update when newer versions found (requires auto_check)
     },
   })
 <

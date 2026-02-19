@@ -26,12 +26,16 @@ local M = {}
 ---@field enabled boolean Whether to auto-install missing binaries on register
 ---@field silent boolean Suppress notifications during auto-install
 
+---@class GlazeAutoUpdateConfig
+---@field enabled boolean Whether to auto-update binaries when newer versions are found (requires auto_check)
+
 ---@class GlazeConfig
 ---@field ui GlazeUIConfig
 ---@field concurrency number Max parallel installations
 ---@field go_cmd string[] Go command (supports goenv)
----@field auto_check GlazeAutoCheckConfig
 ---@field auto_install GlazeAutoInstallConfig
+---@field auto_check GlazeAutoCheckConfig
+---@field auto_update GlazeAutoUpdateConfig
 
 ---@class GlazeUIConfig
 ---@field border string Border style
@@ -60,13 +64,16 @@ M.config = {
   },
   concurrency = 4,
   go_cmd = { "go" },
+  auto_install = {
+    enabled = true,
+    silent = false,
+  },
   auto_check = {
     enabled = true,
     frequency = "daily",
   },
-  auto_install = {
-    enabled = true,
-    silent = false,
+  auto_update = {
+    enabled = false,
   },
 }
 

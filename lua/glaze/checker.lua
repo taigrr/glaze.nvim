@@ -201,10 +201,22 @@ function M.check(opts)
           end
           write_state(state)
 
-          if not opts.silent then
+          -- Auto-update if enabled (requires auto_check to be enabled)
+          if updates_found > 0 and glaze.config.auto_update.enabled and glaze.config.auto_check.enabled then
+            vim.schedule(function()
+              local to_update = {}
+              for n, i in pairs(M._update_info) do
+                if i.has_update then
+                  table.insert(to_update, n)
+                end
+              end
+              vim.notify("Glaze: auto-updating " .. #to_update .. " binary(ies)…", vim.log.levels.INFO)
+              require("glaze.runner").update(to_update)
+            end)
+          elseif not opts.silent then
             if updates_found > 0 then
               vim.schedule(function()
-                vim.notify("Glaze: " .. updates_found .. " update(s) available", vim.log.levels.INFO)
+                vim.notify("Glaze: " .. updates_found .. " update(s) available — run :GlazeUpdate", vim.log.levels.INFO)
               end)
             else
               vim.schedule(function()
@@ -213,7 +225,7 @@ function M.check(opts)
             end
           elseif updates_found > 0 then
             vim.schedule(function()
-              vim.notify("Glaze: " .. updates_found .. " update(s) available", vim.log.levels.INFO)
+              vim.notify("Glaze: " .. updates_found .. " update(s) available — run :GlazeUpdate", vim.log.levels.INFO)
             end)
           end
 
