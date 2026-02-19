@@ -6,16 +6,16 @@
 
 <p>
   <a href="https://github.com/taigrr/glaze.nvim/releases/latest">
-    <img alt="Latest release" src="https://img.shields.io/github/v/release/taigrr/glaze.nvim?style=for-the-badge&logo=starship&color=FF6AD5&logoColor=D9E0EE&labelColor=302D41&include_prerelease&sort=semver">
+    <img alt="Latest release" src="https://img.shields.io/github/v/release/taigrr/glaze.nvim?style=for-the-badge&logo=starship&color=FF6AD5&logoColor=D9E0EE&labelColor=302D41&sort=semver&include_prerelease">
   </a>
   <a href="https://github.com/taigrr/glaze.nvim/pulse">
-    <img alt="Last commit" src="https://img.shields.io/github/last-commit/taigrr/glaze.nvim?style=for-the-badge&logo=starship&color=8bd5ca&logoColor=D9E0EE&labelColor=302D41">
+    <img alt="Last commit" src="https://img.shields.io/github/last-commit/taigrr/glaze.nvim?style=for-the-badge&logo=starship&color=8bd5ca&labelColor=302D41&logoColor=D9E0EE">
   </a>
   <a href="https://github.com/taigrr/glaze.nvim/blob/master/LICENSE">
-    <img alt="License" src="https://img.shields.io/github/license/taigrr/glaze.nvim?style=for-the-badge&logo=starship&color=ee999f&logoColor=D9E0EE&labelColor=302D41">
+    <img alt="License" src="https://img.shields.io/github/license/taigrr/glaze.nvim?style=for-the-badge&logo=starship&color=ee999f&labelColor=302D41&logoColor=D9E0EE">
   </a>
   <a href="https://github.com/taigrr/glaze.nvim/stargazers">
-    <img alt="Stars" src="https://img.shields.io/github/stars/taigrr/glaze.nvim?style=for-the-badge&logo=starship&color=c69ff5&logoColor=D9E0EE&labelColor=302D41">
+    <img alt="Stars" src="https://img.shields.io/github/stars/taigrr/glaze.nvim?style=for-the-badge&logo=starship&color=c69ff5&labelColor=302D41&logoColor=D9E0EE">
   </a>
 </p>
 
