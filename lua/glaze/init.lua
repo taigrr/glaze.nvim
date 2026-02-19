@@ -22,11 +22,16 @@ local M = {}
 ---@field enabled boolean Whether to auto-check for updates
 ---@field frequency string|number Frequency: "daily", "weekly", or hours as number
 
+---@class GlazeAutoInstallConfig
+---@field enabled boolean Whether to auto-install missing binaries on register
+---@field silent boolean Suppress notifications during auto-install
+
 ---@class GlazeConfig
 ---@field ui GlazeUIConfig
 ---@field concurrency number Max parallel installations
 ---@field go_cmd string[] Go command (supports goenv)
 ---@field auto_check GlazeAutoCheckConfig
+---@field auto_install GlazeAutoInstallConfig
 
 ---@class GlazeUIConfig
 ---@field border string Border style
@@ -58,6 +63,10 @@ M.config = {
   auto_check = {
     enabled = true,
     frequency = "daily",
+  },
+  auto_install = {
+    enabled = true,
+    silent = false,
   },
 }
 
@@ -123,6 +132,7 @@ function M.setup(opts)
 end
 
 ---Register a binary for management.
+---If auto_install is enabled and the binary is missing, it will be installed automatically.
 ---@param name string Binary/executable name
 ---@param url string Go module URL (e.g., "github.com/charmbracelet/freeze")
 ---@param opts? { plugin?: string, callback?: fun(success: boolean) }
@@ -134,6 +144,18 @@ function M.register(name, url, opts)
     plugin = opts.plugin,
     callback = opts.callback,
   }
+
+  -- Auto-install if enabled and binary is missing
+  if M.config.auto_install.enabled and not M.is_installed(name) then
+    vim.defer_fn(function()
+      if not M.is_installed(name) then
+        if not M.config.auto_install.silent then
+          vim.notify("[glaze] Auto-installing " .. name .. "…", vim.log.levels.INFO)
+        end
+        require("glaze.runner").install({ name })
+      end
+    end, 100)
+  end
 end
 
 ---Unregister a binary.

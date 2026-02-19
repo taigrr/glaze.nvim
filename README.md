@@ -128,6 +128,10 @@ require("glaze").setup({
   },
   concurrency = 4,  -- Max parallel installations
   go_cmd = { "go" },  -- Auto-detects goenv if available
+  auto_install = {
+    enabled = true,      -- Auto-install missing binaries on register
+    silent = false,      -- Suppress install notifications
+  },
   auto_check = {
     enabled = true,      -- Auto-check for updates
     frequency = "daily", -- "daily", "weekly", or hours as number
