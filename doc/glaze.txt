@@ -1,0 +1,151 @@
+*glaze.txt*  Centralized Go binary management for Neovim plugins
+
+Author:   Tai Groot <tai@taigrr.com>
+License:  MIT
+Homepage: https://github.com/taigrr/glaze.nvim
+
+==============================================================================
+CONTENTS                                                      *glaze-contents*
+
+  1. Introduction ........................... |glaze-introduction|
+  2. Setup .................................. |glaze-setup|
+  3. Commands ............................... |glaze-commands|
+  4. API .................................... |glaze-api|
+  5. Configuration .......................... |glaze-config|
+  6. Highlights ............................. |glaze-highlights|
+  7. For Plugin Authors ..................... |glaze-plugin-authors|
+
+==============================================================================
+1. INTRODUCTION                                           *glaze-introduction*
+
+Glaze is a centralized manager for Go binaries used by Neovim plugins. Instead
+of each plugin implementing its own binary installer, Glaze provides:
+
+- A unified UI for managing all Go binaries
+- Parallel installation with progress tracking  
+- A simple registration API for plugin authors
+
+==============================================================================
+2. SETUP                                                        *glaze-setup*
+
+Using lazy.nvim:
+>lua
+  {
+    "taigrr/glaze.nvim",
+    config = function()
+      require("glaze").setup({})
+    end,
+  }
+<
+
+==============================================================================
+3. COMMANDS                                                  *glaze-commands*
+
+                                                                      *:Glaze*
+:Glaze                  Open the Glaze UI window.
+
+                                                                *:GlazeUpdate*
+:GlazeUpdate [name]     Update all registered binaries, or a specific one.
+
+                                                               *:GlazeInstall*
+:GlazeInstall [name]    Install missing binaries, or a specific one.
+
+==============================================================================
+4. API                                                            *glaze-api*
+
+                                                            *glaze.setup()*
+glaze.setup({opts})
+    Initialize Glaze with optional configuration.
+
+                                                         *glaze.register()*
+glaze.register({name}, {url}, {opts?})
+    Register a binary for management.
+
+    Parameters: ~
+      {name}  Binary/executable name (string)
+      {url}   Go module URL without version (string)
+      {opts}  Optional table with:
+              - plugin: Name of the registering plugin (string)
+              - callback: Function called after install/update (function)
+
+                                                       *glaze.unregister()*
+glaze.unregister({name})
+    Remove a binary from management.
+
+                                                         *glaze.binaries()*
+glaze.binaries()
+    Returns all registered binaries as a table.
+
+                                                     *glaze.is_installed()*
+glaze.is_installed({name})
+    Returns true if the binary is in PATH.
+
+                                                           *glaze.status()*
+glaze.status({name})
+    Returns "installed", "missing", or "unknown".
+
+==============================================================================
+5. CONFIGURATION                                              *glaze-config*
+
+Default configuration:
+>lua
+  require("glaze").setup({
+    ui = {
+      border = "rounded",
+      size = { width = 0.7, height = 0.8 },
+      icons = {
+        pending = "○",
+        running = "◐",
+        done = "●",
+        error = "✗",
+        binary = "󰆍",
+      },
+    },
+    concurrency = 4,
+    go_cmd = { "go" },  -- Auto-detects goenv
+  })
+<
+
+==============================================================================
+6. HIGHLIGHTS                                              *glaze-highlights*
+
+All highlight groups are prefixed with "Glaze":
+
+  GlazeH1             Main title
+  GlazeH2             Section headers
+  GlazeBinary         Binary names
+  GlazeUrl            Module URLs
+  GlazePlugin         Plugin names
+  GlazeDone           Success status
+  GlazeError          Error status
+  GlazeRunning        In-progress status
+  GlazeProgressDone   Progress bar (filled)
+  GlazeProgressTodo   Progress bar (empty)
+
+==============================================================================
+7. FOR PLUGIN AUTHORS                                 *glaze-plugin-authors*
+
+Register your binaries in your plugin's setup:
+>lua
+  local ok, glaze = pcall(require, "glaze")
+  if ok then
+    glaze.register("mytool", "github.com/me/mytool", {
+      plugin = "myplugin.nvim",
+      callback = function(success)
+        if success then
+          vim.notify("mytool updated!")
+        end
+      end,
+    })
+  end
+<
+
+You can still provide plugin-specific update commands:
+>lua
+  vim.api.nvim_create_user_command("MyPluginUpdate", function()
+    require("glaze.runner").update({ "mytool" })
+  end, {})
+<
+
+==============================================================================
+vim:tw=78:ts=8:ft=help:norl:
