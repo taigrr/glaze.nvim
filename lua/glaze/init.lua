@@ -15,8 +15,8 @@ local M = {}
 ---@class GlazeBinary
 ---@field name string Binary name (executable name)
 ---@field url string Go module URL (without @version)
----@field plugin? string Plugin that registered this binary
----@field callback? fun(success: boolean) Optional callback after install/update
+---@field plugins string[] Plugins that registered this binary
+---@field callbacks table<string, fun(success: boolean)> Callbacks keyed by plugin name
 
 ---@class GlazeAutoCheckConfig
 ---@field enabled? boolean Whether to auto-check for updates
@@ -147,11 +147,41 @@ end
 ---@param opts? { plugin?: string, callback?: fun(success: boolean) }
 function M.register(name, url, opts)
   opts = opts or {}
+  local plugin = opts.plugin or "unknown"
+
+  -- Check if this URL is already registered under a different name
+  for existing_name, binary in pairs(M._binaries) do
+    if binary.url == url and existing_name ~= name then
+      -- Same URL, different name - merge into existing entry
+      if not vim.tbl_contains(binary.plugins, plugin) then
+        table.insert(binary.plugins, plugin)
+      end
+      if opts.callback then
+        binary.callbacks[plugin] = opts.callback
+      end
+      return
+    end
+  end
+
+  -- Check if this name is already registered
+  local existing = M._binaries[name]
+  if existing then
+    -- Merge plugin into existing entry
+    if not vim.tbl_contains(existing.plugins, plugin) then
+      table.insert(existing.plugins, plugin)
+    end
+    if opts.callback then
+      existing.callbacks[plugin] = opts.callback
+    end
+    return
+  end
+
+  -- New binary registration
   M._binaries[name] = {
     name = name,
     url = url,
-    plugin = opts.plugin,
-    callback = opts.callback,
+    plugins = opts.plugin and { opts.plugin } or {},
+    callbacks = opts.callback and { [plugin] = opts.callback } or {},
   }
 
   -- Auto-install if enabled and binary is missing

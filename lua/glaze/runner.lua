@@ -93,10 +93,17 @@ local function run_task(task)
       task.status = code == 0 and "done" or "error"
       task.job_id = nil
 
-      -- Call binary callback if set
-      if task.binary.callback then
+      -- Refresh version info on success
+      if code == 0 then
+        require("glaze.checker").refresh_version(task.binary.name)
+      end
+
+      -- Call all registered callbacks
+      if task.binary.callbacks then
         vim.schedule(function()
-          task.binary.callback(code == 0)
+          for _, cb in pairs(task.binary.callbacks) do
+            cb(code == 0)
+          end
         end)
       end
 

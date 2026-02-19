@@ -127,6 +127,60 @@ function M.get_update_info()
   return M._update_info
 end
 
+---Refresh version info for a single binary (called after install/update).
+---@param name string Binary name
+---@param callback? fun() Optional callback when done
+function M.refresh_version(name, callback)
+  local glaze = require("glaze")
+  local binary = glaze._binaries[name]
+  if not binary then
+    if callback then
+      callback()
+    end
+    return
+  end
+
+  get_installed_version(name, function(installed)
+    local info = M._update_info[name] or {
+      name = name,
+      installed_version = nil,
+      latest_version = nil,
+      has_update = false,
+    }
+    info.installed_version = installed
+
+    -- If we have latest version cached, check if still needs update
+    if info.latest_version and installed then
+      info.has_update = installed ~= info.latest_version
+    else
+      info.has_update = false
+    end
+
+    M._update_info[name] = info
+
+    -- Persist to state
+    local state = read_state()
+    state.update_info = state.update_info or {}
+    state.update_info[name] = {
+      installed_version = info.installed_version,
+      latest_version = info.latest_version,
+      has_update = info.has_update,
+    }
+    write_state(state)
+
+    -- Refresh UI if open
+    vim.schedule(function()
+      local ok, view = pcall(require, "glaze.view")
+      if ok and view._float and view._float:valid() then
+        view.render()
+      end
+      if callback then
+        callback()
+      end
+    end)
+  end)
+end
+
 ---Check for updates on all registered binaries.
 ---@param opts? { silent?: boolean }
 function M.check(opts)

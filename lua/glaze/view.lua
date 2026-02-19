@@ -323,8 +323,8 @@ function M._render_binary(text, binary, icons, update_info)
   text:append("  " .. icon .. " ", icon_hl)
   text:append(binary.name, "GlazeBinary")
 
-  if binary.plugin then
-    text:append(" (" .. binary.plugin .. ")", "GlazePlugin")
+  if binary.plugins and #binary.plugins > 0 then
+    text:append(" (" .. table.concat(binary.plugins, ", ") .. ")", "GlazePlugin")
   end
 
   -- Show update available indicator
@@ -353,9 +353,9 @@ function M._render_binary(text, binary, icons, update_info)
       text:append(bin_path, "GlazeUrl"):nl()
     end
 
-    if binary.plugin then
-      text:append("Plugin: ", "GlazeComment", { indent = 6 })
-      text:append(binary.plugin, "GlazePlugin"):nl()
+    if binary.plugins and #binary.plugins > 0 then
+      text:append("Plugins: ", "GlazeComment", { indent = 6 })
+      text:append(table.concat(binary.plugins, ", "), "GlazePlugin"):nl()
     end
 
     -- Show last error output from tasks
