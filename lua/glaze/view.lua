@@ -1,6 +1,6 @@
 ---@brief [[
 --- glaze.nvim view/UI
---- Lazy.nvim-style floating window with Charmbracelet aesthetic
+--- Lazy.nvim-style floating window with doughnut aesthetic
 ---@brief ]]
 
 local M = {}
@@ -32,12 +32,15 @@ function M._get_cursor_binary()
 end
 
 ---Open the Glaze UI.
+---If already open, just re-render without recreating the window.
 function M.open()
-  local Float = require("glaze.float").Float
-
+  -- If window is already open and valid, just render and return
   if M._float and M._float:valid() then
-    M._float:close()
+    M.render()
+    return
   end
+
+  local Float = require("glaze.float").Float
 
   M._float = Float.new({
     title = " 🍩 Glaze ",
@@ -190,17 +193,16 @@ function M.render()
   local binaries = glaze.binaries()
   local binary_count = vim.tbl_count(binaries)
 
-  -- Count updates available
+  -- Count updates available (only binaries with has_update = true)
   local updates_available = 0
   local update_info = checker.get_update_info()
-  for _ in pairs(update_info) do
-    updates_available = updates_available + 1
+  for _, info in pairs(update_info) do
+    if info.has_update then
+      updates_available = updates_available + 1
+    end
   end
 
   local header_suffix = " (" .. binary_count .. ")"
-  if updates_available > 0 then
-    header_suffix = header_suffix
-  end
   text:append("Binaries", "GlazeH2"):append(header_suffix, "GlazeComment")
   if updates_available > 0 then
     text:append("  " .. updates_available .. " update(s) available", "GlazeRunning")

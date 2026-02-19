@@ -54,7 +54,7 @@ function M.check()
       vim.health.ok("GOBIN in PATH: " .. gobin)
     else
       vim.health.warn("GOBIN exists but is not in PATH: " .. gobin, {
-        "Add to PATH: export PATH=\"" .. gobin .. ":$PATH\"",
+        'Add to PATH: export PATH="' .. gobin .. ':$PATH"',
         "Binaries installed by Glaze may not be found without this",
       })
     end

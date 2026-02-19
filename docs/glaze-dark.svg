@@ -1,0 +1,36 @@
+<svg width="400" height="100" viewBox="0 0 400 100" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="glazeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#FF6AD5"/>
+      <stop offset="100%" style="stop-color:#C774E8"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Donut icon -->
+  <g transform="translate(20, 15)">
+    <!-- Outer ring -->
+    <circle cx="35" cy="35" r="32" fill="url(#glazeGradient)"/>
+    <!-- Inner hole -->
+    <circle cx="35" cy="35" r="14" fill="#1E1E2E"/>
+    <!-- Glaze drips -->
+    <ellipse cx="20" cy="58" rx="6" ry="10" fill="url(#glazeGradient)"/>
+    <ellipse cx="35" cy="62" rx="5" ry="8" fill="url(#glazeGradient)"/>
+    <ellipse cx="50" cy="58" rx="6" ry="10" fill="url(#glazeGradient)"/>
+    <!-- Sprinkles -->
+    <rect x="22" y="20" width="8" height="3" rx="1" fill="#A6E3A1" transform="rotate(-30 26 21.5)"/>
+    <rect x="45" y="18" width="8" height="3" rx="1" fill="#89B4FA" transform="rotate(20 49 19.5)"/>
+    <rect x="38" y="38" width="8" height="3" rx="1" fill="#F9E2AF" transform="rotate(-10 42 39.5)"/>
+    <rect x="18" y="40" width="8" height="3" rx="1" fill="#F38BA8" transform="rotate(40 22 41.5)"/>
+    <rect x="50" y="35" width="8" height="3" rx="1" fill="#94E2D5" transform="rotate(-45 54 36.5)"/>
+  </g>
+  
+  <!-- Text -->
+  <text x="105" y="62" font-family="JetBrains Mono, SF Mono, Consolas, monospace" font-size="48" font-weight="bold" fill="#CDD6F4">
+    glaze<tspan fill="#6C7086">.nvim</tspan>
+  </text>
+  
+  <!-- Tagline -->
+  <text x="105" y="85" font-family="JetBrains Mono, SF Mono, Consolas, monospace" font-size="14" fill="#6C7086">
+    Go binary manager for Neovim
+  </text>
+</svg>

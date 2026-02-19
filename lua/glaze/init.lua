@@ -19,35 +19,36 @@ local M = {}
 ---@field callback? fun(success: boolean) Optional callback after install/update
 
 ---@class GlazeAutoCheckConfig
----@field enabled boolean Whether to auto-check for updates
----@field frequency string|number Frequency: "daily", "weekly", or hours as number
+---@field enabled? boolean Whether to auto-check for updates
+---@field frequency? string|number Frequency: "daily", "weekly", or hours as number
 
 ---@class GlazeAutoInstallConfig
----@field enabled boolean Whether to auto-install missing binaries on register
----@field silent boolean Suppress notifications during auto-install
+---@field enabled? boolean Whether to auto-install missing binaries on register
+---@field silent? boolean Suppress notifications during auto-install
 
 ---@class GlazeAutoUpdateConfig
----@field enabled boolean Whether to auto-update binaries when newer versions are found (requires auto_check)
+---@field enabled? boolean Whether to auto-update binaries when newer versions are found (requires auto_check)
 
 ---@class GlazeConfig
----@field ui GlazeUIConfig
----@field concurrency number Max parallel installations
----@field go_cmd string[] Go command (supports goenv)
----@field auto_install GlazeAutoInstallConfig
----@field auto_check GlazeAutoCheckConfig
----@field auto_update GlazeAutoUpdateConfig
+---@field ui? GlazeUIConfig
+---@field concurrency? number Max parallel installations
+---@field go_cmd? string[] Go command (supports goenv)
+---@field auto_install? GlazeAutoInstallConfig
+---@field auto_check? GlazeAutoCheckConfig
+---@field auto_update? GlazeAutoUpdateConfig
 
 ---@class GlazeUIConfig
----@field border string Border style
----@field size { width: number, height: number }
----@field icons GlazeIcons
+---@field border? string Border style
+---@field size? { width: number, height: number }
+---@field icons? GlazeIcons
+---@field use_system_theming? boolean Use nvim highlight groups instead of doughnut colors
 
 ---@class GlazeIcons
----@field pending string
----@field running string
----@field done string
----@field error string
----@field binary string
+---@field pending? string
+---@field running? string
+---@field done? string
+---@field error? string
+---@field binary? string
 
 ---@type GlazeConfig
 M.config = {
@@ -61,6 +62,7 @@ M.config = {
       error = "✗",
       binary = "󰆍",
     },
+    use_system_theming = false,
   },
   concurrency = 4,
   go_cmd = { "go" },

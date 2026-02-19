@@ -1,7 +1,7 @@
 *glaze.txt*  🍩 Centralized Go binary management for Neovim plugins
 
 Author:   Tai Groot <tai@taigrr.com>
-License:  MIT
+License:  0BSD
 Homepage: https://github.com/taigrr/glaze.nvim
 
 ==============================================================================
@@ -124,6 +124,7 @@ Runner API (require("glaze.runner")):
   runner.is_running()          Check if tasks are running
   runner.tasks()               Get current task list
   runner.stats()               Get task statistics
+  runner.on_update({fn})       Register callback for task state changes
 
                                                        *glaze-checker-api*
 Checker API (require("glaze.checker")):
@@ -148,6 +149,7 @@ Default configuration:
         error = "✗",
         binary = "󰆍",
       },
+      use_system_theming = false,  -- Use nvim theme instead of doughnut colors
     },
     concurrency = 4,
     go_cmd = { "go" },  -- Auto-detects goenv
@@ -168,20 +170,37 @@ Default configuration:
 ==============================================================================
 7. HIGHLIGHTS                                              *glaze-highlights*
 
-All highlight groups are prefixed with "Glaze":
+All highlight groups are prefixed with "Glaze". When `use_system_theming` is
+false (default), a doughnut-themed pink/magenta colors are used.
 
+  Group               Description ~
   GlazeH1             Main title
   GlazeH2             Section headers
+  GlazeTitle          Window title
   GlazeBinary         Binary names
-  GlazeUrl            Module URLs
+  GlazeUrl            Module URLs (italic)
   GlazePlugin         Plugin names
   GlazeDone           Success status
   GlazeError          Error status
   GlazeRunning        In-progress status
+  GlazePending        Pending status
   GlazeProgressDone   Progress bar (filled)
   GlazeProgressTodo   Progress bar (empty)
   GlazeVersion        Version info
-  GlazeTime           Timing info
+  GlazeTime           Timing info (italic)
+  GlazeNormal         Normal text (links to NormalFloat)
+  GlazeComment        Comments (links to Comment)
+  GlazeDimmed         Dimmed text (links to Conceal)
+  GlazeBorder         Window border
+  GlazeButton         Inactive button (links to CursorLine)
+  GlazeButtonActive   Active/selected button
+  GlazeKey            Keybind hints
+  GlazeIcon           Default icon color
+  GlazeIconDone       Done icon
+  GlazeIconError      Error icon
+  GlazeIconRunning    Running/spinner icon
+  GlazeBold           Bold text
+  GlazeItalic         Italic text
 
 ==============================================================================
 8. AUTO-UPDATE CHECKING                                    *glaze-auto-check*

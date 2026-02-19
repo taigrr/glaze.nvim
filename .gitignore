@@ -1,0 +1,21 @@
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Neovim
+.nvim.lua
+.nvimrc
+.exrc
+
+# Test artifacts
+.tests/

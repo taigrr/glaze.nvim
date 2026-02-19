@@ -152,7 +152,7 @@ function M.check(opts)
   local remaining = 0
   local updates_found = 0
 
-  for name, binary in pairs(binaries) do
+  for name, _ in pairs(binaries) do
     remaining = remaining + 2 -- installed version + latest version
 
     local info = {
@@ -216,7 +216,10 @@ function M.check(opts)
           elseif not opts.silent then
             if updates_found > 0 then
               vim.schedule(function()
-                vim.notify("Glaze: " .. updates_found .. " update(s) available — run :GlazeUpdate", vim.log.levels.INFO)
+                vim.notify(
+                  "Glaze: " .. updates_found .. " update(s) available — run :GlazeUpdate",
+                  vim.log.levels.INFO
+                )
               end)
             else
               vim.schedule(function()
