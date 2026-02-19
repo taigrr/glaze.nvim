@@ -11,8 +11,25 @@ M._float = nil
 ---@type number?
 M._timer = nil
 
+---@type table<string, boolean>
+M._expanded = {}
+
+---Line-to-binary mapping for cursor-aware actions.
+---@type table<number, string>
+M._line_map = {}
+
 local SPINNERS = { "◐", "◓", "◑", "◒" }
 local SPINNER_IDX = 1
+
+---Get the binary name under the cursor.
+---@return string? name Binary name or nil
+function M._get_cursor_binary()
+  if not M._float or not M._float:valid() then
+    return nil
+  end
+  local line = vim.api.nvim_win_get_cursor(M._float.win)[1]
+  return M._line_map[line]
+end
 
 ---Open the Glaze UI.
 function M.open()
@@ -23,17 +40,35 @@ function M.open()
   end
 
   M._float = Float.new({
-    title = " 󱓞 Glaze ",
+    title = " 🍩 Glaze ",
   })
 
-  -- Set up keymaps
-  M._float:map("u", function()
+  -- Set up keymaps — lazy.nvim-style controls
+  M._float:map("U", function()
     require("glaze.runner").update_all()
-  end, "Update all")
+  end, "Update all binaries")
+
+  M._float:map("u", function()
+    local name = M._get_cursor_binary()
+    if name then
+      require("glaze.runner").update({ name })
+    else
+      vim.notify("Move cursor to a binary line to update it", vim.log.levels.INFO)
+    end
+  end, "Update binary under cursor")
 
   M._float:map("i", function()
+    local name = M._get_cursor_binary()
+    if name then
+      require("glaze.runner").install({ name })
+    else
+      vim.notify("Move cursor to a binary line to install it", vim.log.levels.INFO)
+    end
+  end, "Install binary under cursor")
+
+  M._float:map("I", function()
     require("glaze.runner").install_missing()
-  end, "Install missing")
+  end, "Install all missing")
 
   M._float:map("x", function()
     require("glaze.runner").abort()
@@ -58,6 +93,7 @@ end
 function M._start_timer()
   if M._timer then
     vim.fn.timer_stop(M._timer)
+    M._timer = nil
   end
 
   M._timer = vim.fn.timer_start(100, function()
@@ -80,8 +116,14 @@ function M._start_timer()
 end
 
 ---@private
+---Toggle detail expansion for the binary under the cursor.
 function M._toggle_details()
-  -- TODO: Implement detail expansion
+  local name = M._get_cursor_binary()
+  if not name then
+    return
+  end
+  M._expanded[name] = not M._expanded[name]
+  M.render()
 end
 
 ---Render the UI.
@@ -92,6 +134,7 @@ function M.render()
 
   local glaze = require("glaze")
   local runner = require("glaze.runner")
+  local checker = require("glaze.checker")
   local Text = require("glaze.text").Text
 
   local text = Text.new()
@@ -99,9 +142,12 @@ function M.render()
 
   local icons = glaze.config.ui.icons
 
+  -- Reset line map
+  M._line_map = {}
+
   -- Header
   text:nl()
-  text:append("  ", "GlazeIcon"):append("Glaze", "GlazeH1"):append("  Go Binary Manager", "GlazeComment"):nl()
+  text:append("  🍩 ", "GlazeIcon"):append("Glaze", "GlazeH1"):append("  Go Binary Manager", "GlazeComment"):nl()
   text:nl()
 
   -- Stats / Progress
@@ -113,11 +159,18 @@ function M.render()
 
   -- Keybinds
   text:append(" ", nil, { indent = 2 })
+  text:append(" U ", "GlazeButtonActive"):append(" Update All ", "GlazeButton")
+  text:append("  ")
   text:append(" u ", "GlazeButtonActive"):append(" Update ", "GlazeButton")
   text:append("  ")
-  text:append(" i ", "GlazeButtonActive"):append(" Install ", "GlazeButton")
+  text:append(" I ", "GlazeButtonActive"):append(" Install All ", "GlazeButton")
   text:append("  ")
+  text:append(" i ", "GlazeButtonActive"):append(" Install ", "GlazeButton")
+  text:nl()
+  text:append(" ", nil, { indent = 2 })
   text:append(" x ", "GlazeButtonActive"):append(" Abort ", "GlazeButton")
+  text:append("  ")
+  text:append(" ⏎ ", "GlazeButtonActive"):append(" Details ", "GlazeButton")
   text:append("  ")
   text:append(" q ", "GlazeButtonActive"):append(" Close ", "GlazeButton")
   text:nl():nl()
@@ -137,7 +190,22 @@ function M.render()
   local binaries = glaze.binaries()
   local binary_count = vim.tbl_count(binaries)
 
-  text:append("Binaries", "GlazeH2"):append(" (" .. binary_count .. ")", "GlazeComment"):nl()
+  -- Count updates available
+  local updates_available = 0
+  local update_info = checker.get_update_info()
+  for _ in pairs(update_info) do
+    updates_available = updates_available + 1
+  end
+
+  local header_suffix = " (" .. binary_count .. ")"
+  if updates_available > 0 then
+    header_suffix = header_suffix
+  end
+  text:append("Binaries", "GlazeH2"):append(header_suffix, "GlazeComment")
+  if updates_available > 0 then
+    text:append("  " .. updates_available .. " update(s) available", "GlazeRunning")
+  end
+  text:nl()
   text:nl()
 
   if binary_count == 0 then
@@ -156,7 +224,7 @@ function M.render()
     end)
 
     for _, item in ipairs(sorted) do
-      M._render_binary(text, item.binary, icons)
+      M._render_binary(text, item.binary, icons, update_info)
     end
   end
 
@@ -181,13 +249,18 @@ function M._render_progress(text, stats)
   local done_width = math.floor(done_ratio * width + 0.5)
 
   if stats.done < stats.total then
-    text:append("", {
+    text:append_extmark({
       virt_text_win_col = 2,
       virt_text = { { string.rep("━", done_width), "GlazeProgressDone" } },
     })
-    text:append("", {
+    text:append_extmark({
       virt_text_win_col = 2 + done_width,
       virt_text = { { string.rep("━", width - done_width), "GlazeProgressTodo" } },
+    })
+  else
+    text:append_extmark({
+      virt_text_win_col = 2,
+      virt_text = { { string.rep("━", width), "GlazeProgressDone" } },
     })
   end
 end
@@ -207,6 +280,9 @@ function M._render_task(text, task, icons)
   else
     icon, icon_hl = icons.pending, "GlazePending"
   end
+
+  local line_num = text:row()
+  M._line_map[line_num] = task.binary.name
 
   text:append("  " .. icon .. " ", icon_hl)
   text:append(task.binary.name, "GlazeBinary")
@@ -230,13 +306,17 @@ end
 ---@param text GlazeText
 ---@param binary GlazeBinary
 ---@param icons GlazeIcons
+---@param update_info? table<string, GlazeUpdateInfo>
 ---@private
-function M._render_binary(text, binary, icons)
+function M._render_binary(text, binary, icons, update_info)
   local glaze = require("glaze")
   local installed = glaze.is_installed(binary.name)
 
   local icon = installed and icons.done or icons.pending
   local icon_hl = installed and "GlazeIconDone" or "GlazePending"
+
+  local line_num = text:row()
+  M._line_map[line_num] = binary.name
 
   text:append("  " .. icon .. " ", icon_hl)
   text:append(binary.name, "GlazeBinary")
@@ -245,11 +325,54 @@ function M._render_binary(text, binary, icons)
     text:append(" (" .. binary.plugin .. ")", "GlazePlugin")
   end
 
+  -- Show update available indicator
+  if update_info and update_info[binary.name] then
+    local info = update_info[binary.name]
+    if info.has_update then
+      text:append(" ⬆", "GlazeRunning")
+      if info.installed_version and info.latest_version then
+        text:append(" " .. info.installed_version .. " → " .. info.latest_version, "GlazeTime")
+      end
+    elseif info.installed_version then
+      text:append(" ✓ " .. info.installed_version, "GlazeVersion")
+    end
+  end
+
   text:nl()
-  text:append(binary.url, "GlazeUrl", { indent = 6 }):nl()
+
+  -- Expanded details
+  if M._expanded[binary.name] then
+    text:append("URL: ", "GlazeComment", { indent = 6 })
+    text:append(binary.url, "GlazeUrl"):nl()
+
+    local bin_path = glaze.bin_path(binary.name)
+    if bin_path then
+      text:append("Path: ", "GlazeComment", { indent = 6 })
+      text:append(bin_path, "GlazeUrl"):nl()
+    end
+
+    if binary.plugin then
+      text:append("Plugin: ", "GlazeComment", { indent = 6 })
+      text:append(binary.plugin, "GlazePlugin"):nl()
+    end
+
+    -- Show last error output from tasks
+    local runner = require("glaze.runner")
+    for _, task in ipairs(runner.tasks()) do
+      if task.binary.name == binary.name and task.status == "error" and #task.output > 0 then
+        text:append("Error: ", "GlazeError", { indent = 6 }):nl()
+        for _, line in ipairs(task.output) do
+          text:append(line, "GlazeError", { indent = 8 }):nl()
+        end
+        break
+      end
+    end
+
+    text:nl()
+  end
 end
 
----Close the UI.
+---Close the UI and clean up timer.
 function M.close()
   if M._timer then
     vim.fn.timer_stop(M._timer)

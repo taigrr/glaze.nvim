@@ -57,6 +57,17 @@ function Text:append(str, hl, opts)
   return self
 end
 
+---Append a virtual text extmark on the current line (empty string segment).
+---@param extmark GlazeExtmark Extmark options (virt_text, virt_text_win_col, etc.)
+---@return GlazeText
+function Text:append_extmark(extmark)
+  if #self._lines == 0 then
+    self:nl()
+  end
+  table.insert(self._lines[#self._lines], { str = "", hl = extmark })
+  return self
+end
+
 ---@return GlazeText
 function Text:nl()
   table.insert(self._lines, {})
@@ -106,7 +117,7 @@ function Text:render(buf, ns)
   vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
 
   for l, line in ipairs(self._lines) do
-    if lines[l] ~= "" then
+    if lines[l] ~= "" or true then -- process even empty lines for extmarks
       local col = self.padding
       for _, segment in ipairs(line) do
         local width = vim.fn.strwidth(segment.str)
@@ -114,12 +125,23 @@ function Text:render(buf, ns)
 
         if extmark then
           if type(extmark) == "string" then
-            extmark = { hl_group = extmark, end_col = col + width }
+            -- Simple highlight group string
+            if width > 0 then
+              pcall(vim.api.nvim_buf_set_extmark, buf, ns, l - 1, col, {
+                hl_group = extmark,
+                end_col = col + width,
+              })
+            end
+          elseif type(extmark) == "table" then
+            -- Full extmark table (virt_text, etc.)
+            local extmark_col = extmark.col or col
+            local opts = vim.tbl_extend("force", {}, extmark)
+            opts.col = nil -- col is positional, not an extmark option
+            if not opts.end_col and width > 0 and opts.hl_group then
+              opts.end_col = extmark_col + width
+            end
+            pcall(vim.api.nvim_buf_set_extmark, buf, ns, l - 1, extmark_col, opts)
           end
-          ---@cast extmark GlazeExtmark
-          local extmark_col = extmark.col or col
-          extmark.col = nil
-          pcall(vim.api.nvim_buf_set_extmark, buf, ns, l - 1, extmark_col, extmark)
         end
         col = col + width
       end

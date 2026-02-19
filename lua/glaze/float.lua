@@ -119,12 +119,18 @@ function Float:mount()
     self:close()
   end, "Close")
 
-  -- Auto-close on WinClosed
+  -- Auto-close on WinClosed — also trigger view cleanup to stop timer
   vim.api.nvim_create_autocmd("WinClosed", {
     pattern = tostring(self.win),
     once = true,
     callback = function()
-      self:close()
+      -- Trigger view close to clean up timer
+      local ok, view = pcall(require, "glaze.view")
+      if ok then
+        view.close()
+      else
+        self:close()
+      end
     end,
   })
 

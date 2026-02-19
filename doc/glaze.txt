@@ -1,4 +1,4 @@
-*glaze.txt*  Centralized Go binary management for Neovim plugins
+*glaze.txt*  🍩 Centralized Go binary management for Neovim plugins
 
 Author:   Tai Groot <tai@taigrr.com>
 License:  MIT
@@ -10,19 +10,25 @@ CONTENTS                                                      *glaze-contents*
   1. Introduction ........................... |glaze-introduction|
   2. Setup .................................. |glaze-setup|
   3. Commands ............................... |glaze-commands|
-  4. API .................................... |glaze-api|
-  5. Configuration .......................... |glaze-config|
-  6. Highlights ............................. |glaze-highlights|
-  7. For Plugin Authors ..................... |glaze-plugin-authors|
+  4. Keybinds ............................... |glaze-keybinds|
+  5. API .................................... |glaze-api|
+  6. Configuration .......................... |glaze-config|
+  7. Highlights ............................. |glaze-highlights|
+  8. Auto-update Checking ................... |glaze-auto-check|
+  9. For Plugin Authors ..................... |glaze-plugin-authors|
 
 ==============================================================================
 1. INTRODUCTION                                           *glaze-introduction*
 
-Glaze is a centralized manager for Go binaries used by Neovim plugins. Instead
-of each plugin implementing its own binary installer, Glaze provides:
+Glaze (Go + Lazy = Glaze 🍩) is a centralized manager for Go binaries used by
+Neovim plugins. Instead of each plugin implementing its own binary installer,
+Glaze provides:
 
-- A unified UI for managing all Go binaries
-- Parallel installation with progress tracking  
+- A unified lazy.nvim-style UI for managing all Go binaries
+- Parallel installation with progress tracking
+- Cursor-aware keybinds for individual binary control
+- Automatic update checking with notifications
+- GOBIN/GOPATH awareness
 - A simple registration API for plugin authors
 
 ==============================================================================
@@ -50,8 +56,26 @@ Using lazy.nvim:
                                                                *:GlazeInstall*
 :GlazeInstall [name]    Install missing binaries, or a specific one.
 
+                                                                *:GlazeCheck*
+:GlazeCheck             Manually check for available updates.
+
 ==============================================================================
-4. API                                                            *glaze-api*
+4. KEYBINDS                                                  *glaze-keybinds*
+
+These keybinds are active in the Glaze UI window:
+
+  Key         Action ~
+  `U`           Update ALL registered binaries
+  `u`           Update the binary under the cursor
+  `I`           Install all missing binaries
+  `i`           Install the binary under the cursor
+  `x`           Abort all running tasks
+  `<CR>`        Toggle detail expansion (URL, path, version, errors)
+  `q`           Close the Glaze window
+  `<Esc>`       Close the Glaze window
+
+==============================================================================
+5. API                                                            *glaze-api*
 
                                                             *glaze.setup()*
 glaze.setup({opts})
@@ -78,14 +102,38 @@ glaze.binaries()
 
                                                      *glaze.is_installed()*
 glaze.is_installed({name})
-    Returns true if the binary is in PATH.
+    Returns true if the binary is found in PATH, $GOBIN, $GOPATH/bin,
+    or ~/go/bin.
+
+                                                        *glaze.bin_path()*
+glaze.bin_path({name})
+    Returns the full path to the binary, or nil if not found.
 
                                                            *glaze.status()*
 glaze.status({name})
     Returns "installed", "missing", or "unknown".
 
+                                                        *glaze-runner-api*
+Runner API (require("glaze.runner")):
+
+  runner.update({names})       Update specific binaries
+  runner.update_all()          Update all registered binaries
+  runner.install({names})      Install specific binaries
+  runner.install_missing()     Install all missing binaries
+  runner.abort()               Stop all running tasks
+  runner.is_running()          Check if tasks are running
+  runner.tasks()               Get current task list
+  runner.stats()               Get task statistics
+
+                                                       *glaze-checker-api*
+Checker API (require("glaze.checker")):
+
+  checker.check()              Check for updates (with notifications)
+  checker.auto_check()         Check only if enough time has passed
+  checker.get_update_info()    Get cached update info table
+
 ==============================================================================
-5. CONFIGURATION                                              *glaze-config*
+6. CONFIGURATION                                              *glaze-config*
 
 Default configuration:
 >lua
@@ -103,11 +151,15 @@ Default configuration:
     },
     concurrency = 4,
     go_cmd = { "go" },  -- Auto-detects goenv
+    auto_check = {
+      enabled = true,      -- Auto-check for updates on setup
+      frequency = "daily", -- "daily", "weekly", or hours (number)
+    },
   })
 <
 
 ==============================================================================
-6. HIGHLIGHTS                                              *glaze-highlights*
+7. HIGHLIGHTS                                              *glaze-highlights*
 
 All highlight groups are prefixed with "Glaze":
 
@@ -121,9 +173,27 @@ All highlight groups are prefixed with "Glaze":
   GlazeRunning        In-progress status
   GlazeProgressDone   Progress bar (filled)
   GlazeProgressTodo   Progress bar (empty)
+  GlazeVersion        Version info
+  GlazeTime           Timing info
 
 ==============================================================================
-7. FOR PLUGIN AUTHORS                                 *glaze-plugin-authors*
+8. AUTO-UPDATE CHECKING                                    *glaze-auto-check*
+
+Glaze can automatically check for newer versions of your registered binaries.
+
+When enabled, Glaze checks on setup if enough time has passed since the last
+check. It uses `go list -m -json <module>@latest` to find the latest version
+and `go version -m <binary>` to determine the installed version.
+
+State is stored in: `vim.fn.stdpath("data") .. "/glaze/state.json"`
+
+Use `:GlazeCheck` to manually trigger a check at any time.
+
+In the UI, binaries with available updates show a ⬆ indicator with version
+info (e.g., "v1.0.0 → v1.1.0").
+
+==============================================================================
+9. FOR PLUGIN AUTHORS                                 *glaze-plugin-authors*
 
 Register your binaries in your plugin's setup:
 >lua

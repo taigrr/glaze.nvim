@@ -139,6 +139,12 @@ end
 local function run(names, mode)
   local glaze = require("glaze")
 
+  -- Reject if already running (race condition fix)
+  if M._running then
+    vim.notify("Glaze: tasks already running. Wait or abort first.", vim.log.levels.WARN)
+    return
+  end
+
   -- Check for Go
   local go_check = glaze.config.go_cmd[1]
   if vim.fn.executable(go_check) ~= 1 then

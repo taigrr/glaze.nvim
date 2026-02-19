@@ -18,10 +18,15 @@ local M = {}
 ---@field plugin? string Plugin that registered this binary
 ---@field callback? fun(success: boolean) Optional callback after install/update
 
+---@class GlazeAutoCheckConfig
+---@field enabled boolean Whether to auto-check for updates
+---@field frequency string|number Frequency: "daily", "weekly", or hours as number
+
 ---@class GlazeConfig
 ---@field ui GlazeUIConfig
 ---@field concurrency number Max parallel installations
 ---@field go_cmd string[] Go command (supports goenv)
+---@field auto_check GlazeAutoCheckConfig
 
 ---@class GlazeUIConfig
 ---@field border string Border style
@@ -50,6 +55,10 @@ M.config = {
   },
   concurrency = 4,
   go_cmd = { "go" },
+  auto_check = {
+    enabled = true,
+    frequency = "daily",
+  },
 }
 
 ---@type table<string, GlazeBinary>
@@ -100,6 +109,17 @@ function M.setup(opts)
       return vim.tbl_keys(M._binaries)
     end,
   })
+
+  vim.api.nvim_create_user_command("GlazeCheck", function()
+    require("glaze.checker").check()
+  end, { desc = "Check for binary updates" })
+
+  -- Auto-check for updates
+  if M.config.auto_check.enabled then
+    vim.defer_fn(function()
+      require("glaze.checker").auto_check()
+    end, 3000)
+  end
 end
 
 ---Register a binary for management.
@@ -129,10 +149,79 @@ function M.binaries()
 end
 
 ---Check if a binary is installed.
+---Checks PATH, $GOBIN, $GOPATH/bin, and $(go env GOBIN).
 ---@param name string Binary name
 ---@return boolean
 function M.is_installed(name)
-  return vim.fn.executable(name) == 1
+  -- Check PATH first
+  if vim.fn.executable(name) == 1 then
+    return true
+  end
+
+  -- Check $GOBIN
+  local gobin = os.getenv("GOBIN")
+  if gobin and gobin ~= "" then
+    local path = gobin .. "/" .. name
+    if vim.uv.fs_stat(path) then
+      return true
+    end
+  end
+
+  -- Check $GOPATH/bin
+  local gopath = os.getenv("GOPATH")
+  if gopath and gopath ~= "" then
+    local path = gopath .. "/bin/" .. name
+    if vim.uv.fs_stat(path) then
+      return true
+    end
+  end
+
+  -- Check default ~/go/bin
+  local home = os.getenv("HOME") or os.getenv("USERPROFILE") or ""
+  local default_path = home .. "/go/bin/" .. name
+  if vim.uv.fs_stat(default_path) then
+    return true
+  end
+
+  return false
+end
+
+---Get the install path for a binary if found.
+---@param name string Binary name
+---@return string? path Full path to the binary, or nil
+function M.bin_path(name)
+  -- Check PATH
+  local which = vim.fn.exepath(name)
+  if which ~= "" then
+    return which
+  end
+
+  -- Check $GOBIN
+  local gobin = os.getenv("GOBIN")
+  if gobin and gobin ~= "" then
+    local path = gobin .. "/" .. name
+    if vim.uv.fs_stat(path) then
+      return path
+    end
+  end
+
+  -- Check $GOPATH/bin
+  local gopath = os.getenv("GOPATH")
+  if gopath and gopath ~= "" then
+    local path = gopath .. "/bin/" .. name
+    if vim.uv.fs_stat(path) then
+      return path
+    end
+  end
+
+  -- Check default ~/go/bin
+  local home = os.getenv("HOME") or os.getenv("USERPROFILE") or ""
+  local default_path = home .. "/go/bin/" .. name
+  if vim.uv.fs_stat(default_path) then
+    return default_path
+  end
+
+  return nil
 end
 
 ---Get binary installation status.
