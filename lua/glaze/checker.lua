@@ -203,12 +203,9 @@ function M.check(opts)
   end
 
   M._checking = true
-  local remaining = 0
   local updates_found = 0
-
-  for name, _ in pairs(binaries) do
-    remaining = remaining + 2 -- installed version + latest version
-
+  local remaining = vim.tbl_count(binaries)
+  for name, binary in pairs(binaries) do
     local info = {
       name = name,
       installed_version = nil,
@@ -216,16 +213,6 @@ function M.check(opts)
       has_update = false,
     }
     M._update_info[name] = info
-
-    get_installed_version(name, function()
-      -- callback receives version from the jobstart; re-check via closure
-    end)
-  end
-
-  -- Simplified: check each binary sequentially-ish
-  remaining = vim.tbl_count(binaries)
-  for name, binary in pairs(binaries) do
-    local info = M._update_info[name]
 
     get_installed_version(name, function(installed)
       info.installed_version = installed
