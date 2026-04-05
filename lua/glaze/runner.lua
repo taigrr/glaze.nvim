@@ -143,12 +143,16 @@ end
 ---Run tasks for specified binaries.
 ---@param names string[]
 ---@param mode "install"|"update"
-local function run(names, mode)
+---@param opts? { silent?: boolean }
+local function run(names, mode, opts)
+  opts = opts or {}
   local glaze = require("glaze")
 
   -- Reject if already running (race condition fix)
   if M._running then
-    vim.notify("Glaze: tasks already running. Wait or abort first.", vim.log.levels.WARN)
+    if not opts.silent then
+      vim.notify("Glaze: tasks already running. Wait or abort first.", vim.log.levels.WARN)
+    end
     return
   end
 
@@ -164,18 +168,18 @@ local function run(names, mode)
   for _, name in ipairs(names) do
     local binary = glaze._binaries[name]
     if binary then
-      if mode == "install" and glaze.is_installed(name) then
-        -- Skip already installed
-      else
+      if not (mode == "install" and glaze.is_installed(name)) then
         table.insert(binaries, binary)
       end
     else
-      vim.notify("Unknown binary: " .. name, vim.log.levels.WARN)
+      if not opts.silent then
+        vim.notify("Unknown binary: " .. name, vim.log.levels.WARN)
+      end
     end
   end
 
   if #binaries == 0 then
-    if mode == "install" then
+    if mode == "install" and not opts.silent then
       vim.notify("All binaries already installed", vim.log.levels.INFO)
     end
     return
@@ -191,8 +195,10 @@ local function run(names, mode)
   M._notify()
   M._process_queue()
 
-  -- Open UI
-  require("glaze.view").open()
+  -- Open UI (skip for silent/auto-install operations)
+  if not opts.silent then
+    require("glaze.view").open()
+  end
 end
 
 ---Update specific binaries.
@@ -209,8 +215,9 @@ end
 
 ---Install specific binaries.
 ---@param names string[]
-function M.install(names)
-  run(names, "install")
+---@param opts? { silent?: boolean }
+function M.install(names, opts)
+  run(names, "install", opts)
 end
 
 ---Install all missing binaries.
