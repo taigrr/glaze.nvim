@@ -85,6 +85,12 @@ M._binaries = {}
 ---@type number?
 M._ns = nil
 
+---@type table<string, boolean> Binaries queued for auto-install
+M._auto_install_queue = {}
+
+---@type number? Timer for batched auto-install
+M._auto_install_timer = nil
+
 ---@param opts? GlazeConfig
 function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", M.config, opts or {})
@@ -184,16 +190,31 @@ function M.register(name, url, opts)
     callbacks = opts.callback and { [plugin] = opts.callback } or {},
   }
 
-  -- Auto-install if enabled and binary is missing
+  -- Queue for auto-install if enabled and binary is missing.
+  -- Uses a batched timer so multiple registers don't race.
   if M.config.auto_install.enabled and not M.is_installed(name) then
-    vim.defer_fn(function()
-      if not M.is_installed(name) then
-        if not M.config.auto_install.silent then
-          vim.notify("[glaze] Auto-installing " .. name .. "…", vim.log.levels.INFO)
+    M._auto_install_queue[name] = true
+    if M._auto_install_timer then
+      vim.fn.timer_stop(M._auto_install_timer)
+    end
+    M._auto_install_timer = vim.fn.timer_start(200, function()
+      M._auto_install_timer = nil
+      vim.schedule(function()
+        local to_install = {}
+        for queued_name, _ in pairs(M._auto_install_queue) do
+          if not M.is_installed(queued_name) then
+            table.insert(to_install, queued_name)
+          end
         end
-        require("glaze.runner").install({ name })
-      end
-    end, 100)
+        M._auto_install_queue = {}
+        if #to_install > 0 then
+          if not M.config.auto_install.silent then
+            vim.notify("[glaze] Auto-installing " .. table.concat(to_install, ", ") .. "…", vim.log.levels.INFO)
+          end
+          require("glaze.runner").install(to_install, { silent = M.config.auto_install.silent })
+        end
+      end)
+    end)
   end
 end
 

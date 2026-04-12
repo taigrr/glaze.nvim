@@ -141,12 +141,13 @@ function M.refresh_version(name, callback)
   end
 
   get_installed_version(name, function(installed)
-    local info = M._update_info[name] or {
-      name = name,
-      installed_version = nil,
-      latest_version = nil,
-      has_update = false,
-    }
+    local info = M._update_info[name]
+      or {
+        name = name,
+        installed_version = nil,
+        latest_version = nil,
+        has_update = false,
+      }
     info.installed_version = installed
 
     -- If we have latest version cached, check if still needs update

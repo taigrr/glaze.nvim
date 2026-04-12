@@ -72,9 +72,7 @@ function M.check()
   else
     vim.health.ok(count .. " binary(ies) registered")
     for name, binary in pairs(binaries) do
-      local pi = (binary.plugins and #binary.plugins > 0)
-          and (" (" .. table.concat(binary.plugins, ", ") .. ")")
-        or ""
+      local pi = (binary.plugins and #binary.plugins > 0) and (" (" .. table.concat(binary.plugins, ", ") .. ")") or ""
       if glaze.is_installed(name) then
         vim.health.ok("  " .. name .. " — installed" .. pi)
       else
