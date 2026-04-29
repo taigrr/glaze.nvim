@@ -91,6 +91,15 @@ M._auto_install_queue = {}
 ---@type number? Timer for batched auto-install
 M._auto_install_timer = nil
 
+---@param name string
+---@param fn function
+---@param opts table
+local function ensure_user_command(name, fn, opts)
+  if vim.fn.exists(":" .. name) ~= 2 then
+    vim.api.nvim_create_user_command(name, fn, opts)
+  end
+end
+
 ---@param opts? GlazeConfig
 function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", M.config, opts or {})
@@ -102,11 +111,11 @@ function M.setup(opts)
   end
 
   -- Create commands
-  vim.api.nvim_create_user_command("Glaze", function()
+  ensure_user_command("Glaze", function()
     require("glaze.view").open()
   end, { desc = "Open Glaze UI" })
 
-  vim.api.nvim_create_user_command("GlazeUpdate", function(cmd)
+  ensure_user_command("GlazeUpdate", function(cmd)
     if cmd.args and cmd.args ~= "" then
       require("glaze.runner").update({ cmd.args })
     else
@@ -120,7 +129,7 @@ function M.setup(opts)
     end,
   })
 
-  vim.api.nvim_create_user_command("GlazeInstall", function(cmd)
+  ensure_user_command("GlazeInstall", function(cmd)
     if cmd.args and cmd.args ~= "" then
       require("glaze.runner").install({ cmd.args })
     else
@@ -134,7 +143,7 @@ function M.setup(opts)
     end,
   })
 
-  vim.api.nvim_create_user_command("GlazeCheck", function()
+  ensure_user_command("GlazeCheck", function()
     require("glaze.checker").check()
   end, { desc = "Check for binary updates" })
 

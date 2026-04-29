@@ -1,6 +1,15 @@
-.PHONY: demo clean
+.PHONY: demo clean format lint test
 
 PLUGIN_PATH := $(shell pwd)
+
+format:
+	stylua .
+
+lint:
+	luacheck lua/
+
+test:
+	nvim --headless -u NONE -c "lua dofile('tests/run.lua')" -c qa
 
 demo:
 	@echo "Recording demo.gif..."

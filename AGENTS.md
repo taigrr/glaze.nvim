@@ -58,7 +58,15 @@ Plugins register binaries via `require("glaze").register(name, url, opts)`. Regi
 
 ## Testing
 
-**No automated tests exist.** Manual testing workflow:
+Automated checks:
+
+```bash
+make format   # apply StyLua
+make lint     # run luacheck
+make test     # headless Neovim regression tests
+```
+
+Manual testing workflow:
 
 ```lua
 -- In Neovim:

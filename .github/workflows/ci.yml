@@ -23,3 +23,12 @@ jobs:
         uses: lunarmodules/luacheck@v1
         with:
           args: lua/
+
+      - name: Install Neovim
+        run: |
+          sudo add-apt-repository ppa:neovim-ppa/unstable -y
+          sudo apt-get update
+          sudo apt-get install -y neovim
+
+      - name: Run headless tests
+        run: make test
