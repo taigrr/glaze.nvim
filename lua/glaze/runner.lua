@@ -148,14 +148,6 @@ local function run(names, mode, opts)
   opts = opts or {}
   local glaze = require("glaze")
 
-  -- Reject if already running (race condition fix)
-  if M._running then
-    if not opts.silent then
-      vim.notify("Glaze: tasks already running. Wait or abort first.", vim.log.levels.WARN)
-    end
-    return
-  end
-
   -- Check for Go
   local go_check = glaze.config.go_cmd[1]
   if vim.fn.executable(go_check) ~= 1 then
@@ -163,12 +155,23 @@ local function run(names, mode, opts)
     return
   end
 
-  -- Filter binaries
+  -- Filter binaries, skip those already queued/running
   local binaries = {}
+  local existing_names = {}
+  for _, task in ipairs(M._tasks) do
+    if task.status == "pending" or task.status == "running" then
+      existing_names[task.binary.name] = true
+    end
+  end
+
   for _, name in ipairs(names) do
     local binary = glaze._binaries[name]
     if binary then
-      if not (mode == "install" and glaze.is_installed(name)) then
+      if existing_names[name] then
+        -- Already queued or running, skip
+      elseif mode == "install" and glaze.is_installed(name) then
+        -- Skip already installed
+      else
         table.insert(binaries, binary)
       end
     else
@@ -179,14 +182,13 @@ local function run(names, mode, opts)
   end
 
   if #binaries == 0 then
-    if mode == "install" and not opts.silent then
+    if mode == "install" and not opts.silent and not M._running then
       vim.notify("All binaries already installed", vim.log.levels.INFO)
     end
     return
   end
 
-  -- Create tasks
-  M._tasks = {}
+  -- Add new tasks to the queue
   for _, binary in ipairs(binaries) do
     table.insert(M._tasks, create_task(binary))
   end
