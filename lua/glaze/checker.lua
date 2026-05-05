@@ -19,6 +19,76 @@ M._checking = false
 
 local STATE_FILE = vim.fn.stdpath("data") .. "/glaze/state.json"
 
+---Parse a version string into comparable components.
+---Handles semver (v1.2.3), pseudo-versions (v0.0.0-20240122...), etc.
+---@param version string
+---@return number[] parts, string? prerelease
+local function parse_version(version)
+  if not version then
+    return {}, nil
+  end
+
+  -- Strip leading 'v'
+  local v = version:gsub("^v", "")
+
+  -- Check for pseudo-version (v0.0.0-YYYYMMDD...-hash)
+  local pseudo_date = v:match("^0%.0%.0%-(%d+)")
+  if pseudo_date then
+    -- Pseudo-versions: compare by date portion
+    return { 0, 0, 0, tonumber(pseudo_date) or 0 }, "pseudo"
+  end
+
+  -- Split by hyphen to separate prerelease
+  local base, prerelease = v:match("^([^-]+)-?(.*)$")
+  if prerelease == "" then
+    prerelease = nil
+  end
+
+  -- Parse numeric parts
+  local parts = {}
+  for num in (base or v):gmatch("(%d+)") do
+    table.insert(parts, tonumber(num) or 0)
+  end
+
+  return parts, prerelease
+end
+
+---Compare two versions. Returns true if `latest` is newer than `installed`.
+---@param installed string
+---@param latest string
+---@return boolean
+local function is_newer(installed, latest)
+  if not installed or not latest then
+    return false
+  end
+
+  local inst_parts, inst_pre = parse_version(installed)
+  local lat_parts, lat_pre = parse_version(latest)
+
+  -- Compare numeric parts
+  local max_len = math.max(#inst_parts, #lat_parts)
+  for i = 1, max_len do
+    local inst_num = inst_parts[i] or 0
+    local lat_num = lat_parts[i] or 0
+    if lat_num > inst_num then
+      return true
+    elseif lat_num < inst_num then
+      return false
+    end
+  end
+
+  -- Same numeric version - check prerelease
+  -- No prerelease > has prerelease (1.0.0 > 1.0.0-beta)
+  if inst_pre and not lat_pre then
+    return true -- latest has no prerelease, so it's newer
+  elseif not inst_pre and lat_pre then
+    return false -- installed has no prerelease, latest does
+  end
+
+  -- Both have or both lack prerelease, versions are equal
+  return false
+end
+
 ---Read persisted state from disk.
 ---@return table
 local function read_state()
@@ -152,7 +222,7 @@ function M.refresh_version(name, callback)
 
     -- If we have latest version cached, check if still needs update
     if info.latest_version and installed then
-      info.has_update = installed ~= info.latest_version
+      info.has_update = is_newer(installed, info.latest_version)
     else
       info.has_update = false
     end
@@ -221,7 +291,7 @@ function M.check(opts)
       get_latest_version(binary.url, function(latest)
         info.latest_version = latest
 
-        if installed and latest and installed ~= latest then
+        if is_newer(installed, latest) then
           info.has_update = true
           updates_found = updates_found + 1
         end
