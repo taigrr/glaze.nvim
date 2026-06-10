@@ -166,18 +166,12 @@ local function run(names, mode, opts)
 
   for _, name in ipairs(names) do
     local binary = glaze._binaries[name]
-    if binary then
-      if existing_names[name] then
-        -- Already queued or running, skip
-      elseif mode == "install" and glaze.is_installed(name) then
-        -- Skip already installed
-      else
-        table.insert(binaries, binary)
-      end
-    else
+    if not binary then
       if not opts.silent then
         vim.notify("Unknown binary: " .. name, vim.log.levels.WARN)
       end
+    elseif not existing_names[name] and not (mode == "install" and glaze.is_installed(name)) then
+      table.insert(binaries, binary)
     end
   end
 
