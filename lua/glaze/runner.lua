@@ -111,6 +111,15 @@ local function run_task(task)
       M._process_queue()
     end,
   })
+
+  if task.job_id <= 0 then
+    task.end_time = vim.uv.hrtime()
+    task.status = "error"
+    table.insert(task.output, "Failed to start command: " .. table.concat(cmd, " "))
+    task.job_id = nil
+    M._notify()
+    vim.schedule(M._process_queue)
+  end
 end
 
 ---@private
