@@ -107,6 +107,38 @@ test("register merges duplicate plugin registrations without duplicates", functi
   assert_eq(binary.plugins[2], "freeze.nvim")
 end)
 
+test("runner marks failed job starts as errors", function()
+  local glaze = reset_glaze()
+  local runner = require("glaze.runner")
+  local original_jobstart = vim.fn.jobstart
+
+  local callback_result = "unset"
+  glaze.setup({ auto_check = { enabled = false }, auto_install = { enabled = false } })
+  glaze.register("fake-glaze-binary", "example.com/fake/glaze", {
+    plugin = "fake.nvim",
+    callback = function(success)
+      callback_result = success
+    end,
+  })
+  glaze.is_installed = function()
+    return false
+  end
+  vim.fn.jobstart = function()
+    return -1
+  end
+
+  runner.install({ "fake-glaze-binary" }, { silent = true })
+  vim.wait(100)
+  vim.fn.jobstart = original_jobstart
+
+  local tasks = runner.tasks()
+  assert_eq(#tasks, 1, "failed job start should create one task")
+  assert_eq(tasks[1].status, "error", "failed job start should mark task as error")
+  assert_truthy(tasks[1].output[1]:match("Failed to start command"), "failed job start should keep output")
+  assert_eq(runner.is_running(), false, "failed job start should drain the runner")
+  assert_eq(callback_result, false, "failed job start should notify callbacks with false")
+end)
+
 for _, case in ipairs(results) do
   local ok, err = pcall(case.fn)
   if not ok then

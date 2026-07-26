@@ -111,6 +111,25 @@ local function run_task(task)
       M._process_queue()
     end,
   })
+
+  if task.job_id <= 0 then
+    task.end_time = vim.uv.hrtime()
+    task.status = "error"
+    table.insert(task.output, "Failed to start command: " .. table.concat(cmd, " "))
+    task.job_id = nil
+
+    -- Call all registered callbacks with failure
+    if task.binary.callbacks then
+      vim.schedule(function()
+        for _, cb in pairs(task.binary.callbacks) do
+          cb(false)
+        end
+      end)
+    end
+
+    M._notify()
+    vim.schedule(M._process_queue)
+  end
 end
 
 ---@private
@@ -166,18 +185,12 @@ local function run(names, mode, opts)
 
   for _, name in ipairs(names) do
     local binary = glaze._binaries[name]
-    if binary then
-      if existing_names[name] then
-        -- Already queued or running, skip
-      elseif mode == "install" and glaze.is_installed(name) then
-        -- Skip already installed
-      else
-        table.insert(binaries, binary)
-      end
-    else
+    if not binary then
       if not opts.silent then
         vim.notify("Unknown binary: " .. name, vim.log.levels.WARN)
       end
+    elseif not existing_names[name] and not (mode == "install" and glaze.is_installed(name)) then
+      table.insert(binaries, binary)
     end
   end
 
