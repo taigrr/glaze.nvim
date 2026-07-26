@@ -174,6 +174,16 @@ local function run(names, mode, opts)
     return
   end
 
+  -- Prune finished tasks from previous operations so the list and stats
+  -- don't accumulate stale entries. Keep pending/running tasks intact.
+  local active = {}
+  for _, task in ipairs(M._tasks) do
+    if task.status == "pending" or task.status == "running" then
+      table.insert(active, task)
+    end
+  end
+  M._tasks = active
+
   -- Filter binaries, skip those already queued/running
   local binaries = {}
   local existing_names = {}
@@ -256,6 +266,10 @@ function M.abort()
   for _, task in ipairs(M._tasks) do
     if task.job_id then
       vim.fn.jobstop(task.job_id)
+      task.status = "error"
+      table.insert(task.output, "Aborted by user")
+    elseif task.status == "pending" then
+      -- Cancel queued tasks so _process_queue doesn't relaunch them
       task.status = "error"
       table.insert(task.output, "Aborted by user")
     end

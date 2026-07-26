@@ -139,6 +139,33 @@ test("runner marks failed job starts as errors", function()
   assert_eq(callback_result, false, "failed job start should notify callbacks with false")
 end)
 
+test("runner prunes finished tasks on a new operation", function()
+  local glaze = reset_glaze()
+  local runner = require("glaze.runner")
+  local original_jobstart = vim.fn.jobstart
+
+  glaze.setup({ auto_check = { enabled = false }, auto_install = { enabled = false } })
+  glaze.register("fake-a", "example.com/fake/a")
+  glaze.register("fake-b", "example.com/fake/b")
+  glaze.is_installed = function()
+    return false
+  end
+  vim.fn.jobstart = function()
+    return -1
+  end
+
+  runner.install({ "fake-a" }, { silent = true })
+  vim.wait(100)
+  assert_eq(#runner.tasks(), 1, "first operation should leave one task")
+
+  runner.install({ "fake-b" }, { silent = true })
+  vim.wait(100)
+  vim.fn.jobstart = original_jobstart
+
+  assert_eq(#runner.tasks(), 1, "finished tasks from prior operation should be pruned")
+  assert_eq(runner.tasks()[1].binary.name, "fake-b", "only the current task should remain")
+end)
+
 for _, case in ipairs(results) do
   local ok, err = pcall(case.fn)
   if not ok then

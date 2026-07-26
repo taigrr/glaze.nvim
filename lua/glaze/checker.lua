@@ -83,9 +83,13 @@ local function is_newer(installed, latest)
     return true -- latest has no prerelease, so it's newer
   elseif not inst_pre and lat_pre then
     return false -- installed has no prerelease, latest does
+  elseif inst_pre and lat_pre then
+    -- Both prereleases on the same base: lexical comparison catches
+    -- rc1->rc2 and same-base pseudo-version date progression.
+    return lat_pre > inst_pre
   end
 
-  -- Both have or both lack prerelease, versions are equal
+  -- Both lack prerelease, versions are equal
   return false
 end
 
