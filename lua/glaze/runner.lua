@@ -117,6 +117,16 @@ local function run_task(task)
     task.status = "error"
     table.insert(task.output, "Failed to start command: " .. table.concat(cmd, " "))
     task.job_id = nil
+
+    -- Call all registered callbacks with failure
+    if task.binary.callbacks then
+      vim.schedule(function()
+        for _, cb in pairs(task.binary.callbacks) do
+          cb(false)
+        end
+      end)
+    end
+
     M._notify()
     vim.schedule(M._process_queue)
   end

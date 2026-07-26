@@ -112,8 +112,14 @@ test("runner marks failed job starts as errors", function()
   local runner = require("glaze.runner")
   local original_jobstart = vim.fn.jobstart
 
+  local callback_result = "unset"
   glaze.setup({ auto_check = { enabled = false }, auto_install = { enabled = false } })
-  glaze.register("fake-glaze-binary", "example.com/fake/glaze")
+  glaze.register("fake-glaze-binary", "example.com/fake/glaze", {
+    plugin = "fake.nvim",
+    callback = function(success)
+      callback_result = success
+    end,
+  })
   glaze.is_installed = function()
     return false
   end
@@ -130,6 +136,7 @@ test("runner marks failed job starts as errors", function()
   assert_eq(tasks[1].status, "error", "failed job start should mark task as error")
   assert_truthy(tasks[1].output[1]:match("Failed to start command"), "failed job start should keep output")
   assert_eq(runner.is_running(), false, "failed job start should drain the runner")
+  assert_eq(callback_result, false, "failed job start should notify callbacks with false")
 end)
 
 for _, case in ipairs(results) do
