@@ -28,8 +28,8 @@ local function parse_version(version)
     return {}, nil, nil
   end
 
-  -- Strip leading 'v'
-  local v = version:gsub("^v", "")
+  -- Strip leading 'v' and any build metadata (semver §10, e.g. +incompatible)
+  local v = version:gsub("^v", ""):gsub("%+.*$", "")
 
   -- Detect the 14-digit timestamp embedded in any Go pseudo-version form
   -- (v0.0.0-<ts>-<hash>, vX.Y.Z-0.<ts>-<hash>, vX.Y.Z-pre.0.<ts>-<hash>).
