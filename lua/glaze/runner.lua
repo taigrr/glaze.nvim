@@ -174,16 +174,6 @@ local function run(names, mode, opts)
     return
   end
 
-  -- Prune finished tasks from previous operations so the list and stats
-  -- don't accumulate stale entries. Keep pending/running tasks intact.
-  local active = {}
-  for _, task in ipairs(M._tasks) do
-    if task.status == "pending" or task.status == "running" then
-      table.insert(active, task)
-    end
-  end
-  M._tasks = active
-
   -- Filter binaries, skip those already queued/running
   local binaries = {}
   local existing_names = {}
@@ -210,6 +200,17 @@ local function run(names, mode, opts)
     end
     return
   end
+
+  -- Prune finished tasks from previous operations so the list and stats
+  -- don't accumulate stale entries. Only done here, once we know there is
+  -- new work, so a no-op invocation doesn't wipe the visible history.
+  local active = {}
+  for _, task in ipairs(M._tasks) do
+    if task.status == "pending" or task.status == "running" then
+      table.insert(active, task)
+    end
+  end
+  M._tasks = active
 
   -- Add new tasks to the queue
   for _, binary in ipairs(binaries) do

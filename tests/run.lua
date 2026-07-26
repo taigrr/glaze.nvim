@@ -166,6 +166,26 @@ test("runner prunes finished tasks on a new operation", function()
   assert_eq(runner.tasks()[1].binary.name, "fake-b", "only the current task should remain")
 end)
 
+test("checker compares versions and prereleases correctly", function()
+  local glaze = reset_glaze()
+  glaze.setup({ auto_check = { enabled = false }, auto_install = { enabled = false } })
+  local is_newer = require("glaze.checker")._is_newer
+
+  assert_eq(is_newer("v1.0.0", "v1.1.0"), true, "minor bump is newer")
+  assert_eq(is_newer("v1.10.0", "v1.9.0"), false, "no false-positive on numeric ordering")
+  assert_eq(is_newer("1.0.0", "v1.0.0"), false, "v-prefix normalized, equal")
+  assert_eq(is_newer("v1.0.0-rc1", "v1.0.0"), true, "release is newer than prerelease")
+  assert_eq(is_newer("v1.0.0", "v1.0.0-rc1"), false, "prerelease is not newer than release")
+  assert_eq(is_newer("v1.0.0-rc1", "v1.0.0-rc2"), true, "rc1 -> rc2")
+  assert_eq(is_newer("v1.0.0-rc2", "v1.0.0-rc10"), true, "rc2 -> rc10 (multi-digit)")
+  assert_eq(is_newer("v1.0.0-rc10", "v1.0.0-rc2"), false, "rc10 is not older than rc2")
+  assert_eq(
+    is_newer("v0.0.0-20240101000000-aaaaaaaaaaaa", "v0.0.0-20240202000000-bbbbbbbbbbbb"),
+    true,
+    "pseudo-version date progression"
+  )
+end)
+
 for _, case in ipairs(results) do
   local ok, err = pcall(case.fn)
   if not ok then

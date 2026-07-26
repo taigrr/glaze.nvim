@@ -22,21 +22,18 @@ local STATE_FILE = vim.fn.stdpath("data") .. "/glaze/state.json"
 ---Parse a version string into comparable components.
 ---Handles semver (v1.2.3), pseudo-versions (v0.0.0-20240122...), etc.
 ---@param version string
----@return number[] parts, string? prerelease
+---@return number[] parts, string? prerelease, number? pseudo_ts
 local function parse_version(version)
   if not version then
-    return {}, nil
+    return {}, nil, nil
   end
 
   -- Strip leading 'v'
   local v = version:gsub("^v", "")
 
-  -- Check for pseudo-version (v0.0.0-YYYYMMDD...-hash)
-  local pseudo_date = v:match("^0%.0%.0%-(%d+)")
-  if pseudo_date then
-    -- Pseudo-versions: compare by date portion
-    return { 0, 0, 0, tonumber(pseudo_date) or 0 }, "pseudo"
-  end
+  -- Detect the 14-digit timestamp embedded in any Go pseudo-version form
+  -- (v0.0.0-<ts>-<hash>, vX.Y.Z-0.<ts>-<hash>, vX.Y.Z-pre.0.<ts>-<hash>).
+  local pseudo_ts = v:match("(%d%d%d%d%d%d%d%d%d%d%d%d%d%d)%-%x+$")
 
   -- Split by hyphen to separate prerelease
   local base, prerelease = v:match("^([^-]+)-?(.*)$")
@@ -50,7 +47,58 @@ local function parse_version(version)
     table.insert(parts, tonumber(num) or 0)
   end
 
-  return parts, prerelease
+  return parts, prerelease, pseudo_ts and tonumber(pseudo_ts) or nil
+end
+
+---Compare two prerelease strings per semver §11 (dot-separated identifiers,
+---numeric compared numerically, alphanumeric lexically, numeric < alphanumeric).
+---@param a string
+---@param b string
+---@return number -1 if a<b, 0 if equal, 1 if a>b
+local function compare_prerelease(a, b)
+  local a_ids, b_ids = {}, {}
+  for id in a:gmatch("[^.]+") do
+    table.insert(a_ids, id)
+  end
+  for id in b:gmatch("[^.]+") do
+    table.insert(b_ids, id)
+  end
+
+  local max_len = math.max(#a_ids, #b_ids)
+  for i = 1, max_len do
+    local ai, bi = a_ids[i], b_ids[i]
+    -- A larger set of identifiers wins when all preceding are equal.
+    if ai == nil then
+      return -1
+    elseif bi == nil then
+      return 1
+    end
+
+    local an, bn = tonumber(ai), tonumber(bi)
+    if an and bn then
+      if an ~= bn then
+        return an < bn and -1 or 1
+      end
+    elseif an and not bn then
+      return -1 -- numeric identifiers have lower precedence
+    elseif bn and not an then
+      return 1
+    elseif ai ~= bi then
+      -- Alphanumeric: split into text prefix and trailing number so
+      -- e.g. "rc2" < "rc10" compares numerically after the shared prefix.
+      local a_text, a_num = ai:match("^(.-)(%d*)$")
+      local b_text, b_num = bi:match("^(.-)(%d*)$")
+      if a_text == b_text and a_num ~= "" and b_num ~= "" then
+        local na, nb = tonumber(a_num), tonumber(b_num)
+        if na ~= nb then
+          return na < nb and -1 or 1
+        end
+      end
+      return ai < bi and -1 or 1
+    end
+  end
+
+  return 0
 end
 
 ---Compare two versions. Returns true if `latest` is newer than `installed`.
@@ -62,8 +110,8 @@ local function is_newer(installed, latest)
     return false
   end
 
-  local inst_parts, inst_pre = parse_version(installed)
-  local lat_parts, lat_pre = parse_version(latest)
+  local inst_parts, inst_pre, inst_ts = parse_version(installed)
+  local lat_parts, lat_pre, lat_ts = parse_version(latest)
 
   -- Compare numeric parts
   local max_len = math.max(#inst_parts, #lat_parts)
@@ -77,6 +125,11 @@ local function is_newer(installed, latest)
     end
   end
 
+  -- Same numeric base. Prefer pseudo-version timestamps when both are pseudos.
+  if inst_ts and lat_ts then
+    return lat_ts > inst_ts
+  end
+
   -- Same numeric version - check prerelease
   -- No prerelease > has prerelease (1.0.0 > 1.0.0-beta)
   if inst_pre and not lat_pre then
@@ -84,9 +137,9 @@ local function is_newer(installed, latest)
   elseif not inst_pre and lat_pre then
     return false -- installed has no prerelease, latest does
   elseif inst_pre and lat_pre then
-    -- Both prereleases on the same base: lexical comparison catches
-    -- rc1->rc2 and same-base pseudo-version date progression.
-    return lat_pre > inst_pre
+    -- Both prereleases on the same base: semver identifier comparison
+    -- catches rc1->rc2, rc2->rc10, and same-base date progression.
+    return compare_prerelease(inst_pre, lat_pre) < 0
   end
 
   -- Both lack prerelease, versions are equal
@@ -384,5 +437,8 @@ function M.auto_check()
     M.check({ silent = true })
   end
 end
+
+---@private Exposed for testing.
+M._is_newer = is_newer
 
 return M
