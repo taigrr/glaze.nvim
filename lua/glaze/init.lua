@@ -17,6 +17,7 @@ local M = {}
 ---@field url string Go module URL (without @version)
 ---@field plugins string[] Plugins that registered this binary
 ---@field callbacks table<string, fun(success: boolean)> Callbacks keyed by plugin name
+---@field source? { file: string, line: number } Location where the binary was registered
 
 ---@class GlazeAutoCheckConfig
 ---@field enabled? boolean Whether to auto-check for updates
@@ -91,6 +92,23 @@ M._auto_install_queue = {}
 ---@type number? Timer for batched auto-install
 M._auto_install_timer = nil
 
+---Capture the source location of the caller that invoked register().
+---Walks up the stack to the first frame outside this module.
+---@return { file: string, line: number }?
+local function capture_source()
+  local this = debug.getinfo(1, "S").source
+  for level = 2, 20 do
+    local info = debug.getinfo(level, "Sl")
+    if not info then
+      break
+    end
+    if info.source ~= this and info.source:sub(1, 1) == "@" then
+      return { file = info.source:sub(2), line = info.currentline }
+    end
+  end
+  return nil
+end
+
 ---@param name string
 ---@param fn function
 ---@param opts table
@@ -163,6 +181,7 @@ end
 function M.register(name, url, opts)
   opts = opts or {}
   local plugin = opts.plugin or "unknown"
+  local source = capture_source()
 
   -- Check if this URL is already registered under a different name
   for existing_name, binary in pairs(M._binaries) do
@@ -173,6 +192,9 @@ function M.register(name, url, opts)
       end
       if opts.callback then
         binary.callbacks[plugin] = opts.callback
+      end
+      if not binary.source and source then
+        binary.source = source
       end
       return
     end
@@ -188,6 +210,9 @@ function M.register(name, url, opts)
     if opts.callback then
       existing.callbacks[plugin] = opts.callback
     end
+    if not existing.source and source then
+      existing.source = source
+    end
     return
   end
 
@@ -197,6 +222,7 @@ function M.register(name, url, opts)
     url = url,
     plugins = opts.plugin and { opts.plugin } or {},
     callbacks = opts.callback and { [plugin] = opts.callback } or {},
+    source = source,
   }
 
   -- Queue for auto-install if enabled and binary is missing.

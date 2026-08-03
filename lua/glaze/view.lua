@@ -81,6 +81,10 @@ function M.open()
     M._toggle_details()
   end, "Toggle details")
 
+  M._float:map("gd", function()
+    M._goto_definition()
+  end, "Go to registration")
+
   -- Subscribe to runner updates
   require("glaze.runner").on_update(function()
     M.render()
@@ -129,6 +133,34 @@ function M._toggle_details()
   M.render()
 end
 
+---@private
+---Jump to where the binary under the cursor was registered.
+function M._goto_definition()
+  local name = M._get_cursor_binary()
+  if not name then
+    vim.notify("Move cursor to a binary line to go to its registration", vim.log.levels.INFO)
+    return
+  end
+
+  local binary = require("glaze").binaries()[name]
+  local source = binary and binary.source
+  if not source or not source.file then
+    vim.notify("[glaze] No registration location known for " .. name, vim.log.levels.WARN)
+    return
+  end
+
+  if M._float and M._float:valid() then
+    M._float:close()
+  end
+
+  vim.schedule(function()
+    vim.cmd("edit " .. vim.fn.fnameescape(source.file))
+    local line = math.max(source.line or 1, 1)
+    pcall(vim.api.nvim_win_set_cursor, 0, { line, 0 })
+    vim.cmd("normal! zz")
+  end)
+end
+
 ---Render the UI.
 function M.render()
   if not M._float or not M._float:valid() then
@@ -174,6 +206,8 @@ function M.render()
   text:append(" x ", "GlazeButtonActive"):append(" Abort ", "GlazeButton")
   text:append("  ")
   text:append(" <enter> ", "GlazeButtonActive"):append(" Details ", "GlazeButton")
+  text:append("  ")
+  text:append(" gd ", "GlazeButtonActive"):append(" Goto Config ", "GlazeButton")
   text:append("  ")
   text:append(" q ", "GlazeButtonActive"):append(" Close ", "GlazeButton")
   text:nl():nl()
@@ -356,6 +390,11 @@ function M._render_binary(text, binary, icons, update_info)
     if binary.plugins and #binary.plugins > 0 then
       text:append("Plugins: ", "GlazeComment", { indent = 6 })
       text:append(table.concat(binary.plugins, ", "), "GlazePlugin"):nl()
+    end
+
+    if binary.source and binary.source.file then
+      text:append("Registered: ", "GlazeComment", { indent = 6 })
+      text:append(binary.source.file .. ":" .. (binary.source.line or 0), "GlazeUrl"):nl()
     end
 
     -- Show last error output from tasks
