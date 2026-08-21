@@ -56,6 +56,46 @@ test("setup is idempotent and preserves updated config", function()
   assert_truthy(vim.fn.exists(":GlazeCheck") == 2, "GlazeCheck command should exist")
 end)
 
+test("setup preserves explicit go command when goenv is installed", function()
+  local glaze = reset_glaze()
+  local original_executable = vim.fn.executable
+
+  vim.fn.executable = function(name)
+    if name == "goenv" then
+      return 1
+    end
+    return original_executable(name)
+  end
+
+  glaze.setup({
+    auto_check = { enabled = false },
+    go_cmd = { "custom-go", "wrapper" },
+  })
+  vim.fn.executable = original_executable
+
+  assert_eq(glaze.config.go_cmd[1], "custom-go", "explicit go command should not be replaced by goenv")
+  assert_eq(glaze.config.go_cmd[2], "wrapper", "explicit go command arguments should be preserved")
+end)
+
+test("setup auto-detects goenv when go command is omitted", function()
+  local glaze = reset_glaze()
+  local original_executable = vim.fn.executable
+
+  vim.fn.executable = function(name)
+    if name == "goenv" then
+      return 1
+    end
+    return original_executable(name)
+  end
+
+  glaze.setup({ auto_check = { enabled = false } })
+  vim.fn.executable = original_executable
+
+  assert_eq(glaze.config.go_cmd[1], "goenv", "omitted go command should use detected goenv")
+  assert_eq(glaze.config.go_cmd[2], "exec", "goenv command should include exec")
+  assert_eq(glaze.config.go_cmd[3], "go", "goenv command should run go")
+end)
+
 test("register batches auto-install requests into one install call", function()
   local glaze = reset_glaze()
   local runner = require("glaze.runner")
