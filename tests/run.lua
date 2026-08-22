@@ -96,6 +96,25 @@ test("setup auto-detects goenv when go command is omitted", function()
   assert_eq(glaze.config.go_cmd[3], "go", "goenv command should run go")
 end)
 
+test("setup replaces goenv-detected go command wholesale on later explicit setup", function()
+  local glaze = reset_glaze()
+  local original_executable = vim.fn.executable
+
+  vim.fn.executable = function(name)
+    if name == "goenv" then
+      return 1
+    end
+    return original_executable(name)
+  end
+
+  glaze.setup({ auto_check = { enabled = false } })
+  glaze.setup({ go_cmd = { "go" } })
+  vim.fn.executable = original_executable
+
+  assert_eq(#glaze.config.go_cmd, 1, "explicit go command should not retain stale trailing elements")
+  assert_eq(glaze.config.go_cmd[1], "go", "explicit go command should be used verbatim")
+end)
+
 test("register batches auto-install requests into one install call", function()
   local glaze = reset_glaze()
   local runner = require("glaze.runner")
