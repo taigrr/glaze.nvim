@@ -120,11 +120,18 @@ end
 
 ---@param opts? GlazeConfig
 function M.setup(opts)
+  local should_detect_goenv = not opts or opts.go_cmd == nil
   M.config = vim.tbl_deep_extend("force", M.config, opts or {})
   M._ns = vim.api.nvim_create_namespace("glaze")
 
+  -- go_cmd is a list; replace it wholesale so index-wise deep merge cannot
+  -- leave stale trailing elements from a previous value.
+  if opts and opts.go_cmd ~= nil then
+    M.config.go_cmd = vim.deepcopy(opts.go_cmd)
+  end
+
   -- Auto-detect goenv
-  if vim.fn.executable("goenv") == 1 then
+  if should_detect_goenv and vim.fn.executable("goenv") == 1 then
     M.config.go_cmd = { "goenv", "exec", "go" }
   end
 
