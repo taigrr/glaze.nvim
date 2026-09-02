@@ -195,25 +195,38 @@ local function get_installed_version(name, callback)
     return
   end
 
-  vim.fn.jobstart({ "go", "version", "-m", bin_path }, {
+  local done = false
+  local function finish(version)
+    if done then
+      return
+    end
+    done = true
+    callback(version)
+  end
+
+  local job_id = vim.fn.jobstart({ "go", "version", "-m", bin_path }, {
     stdout_buffered = true,
     on_stdout = function(_, data)
       if not data then
-        callback(nil)
+        finish(nil)
         return
       end
       local output = table.concat(data, "\n")
       -- Parse "mod\tmodule/path\tv1.2.3\th1:..." or "path\tmodule/path"
       local version = output:match("\tmod\t[^\t]+\t(v[^\t%s]+)")
         or output:match("\tpath\t[^\n]+\n[^\t]*\tmod\t[^\t]+\t(v[^\t%s]+)")
-      callback(version)
+      finish(version)
     end,
     on_exit = function(_, code)
       if code ~= 0 then
-        callback(nil)
+        finish(nil)
       end
     end,
   })
+
+  if job_id <= 0 then
+    finish(nil)
+  end
 end
 
 ---Check for the latest version of a module using go list.
@@ -224,28 +237,41 @@ local function get_latest_version(url, callback)
   local cmd = vim.list_extend({}, glaze.config.go_cmd)
   vim.list_extend(cmd, { "list", "-m", "-json", url .. "@latest" })
 
-  vim.fn.jobstart(cmd, {
+  local done = false
+  local function finish(version)
+    if done then
+      return
+    end
+    done = true
+    callback(version)
+  end
+
+  local job_id = vim.fn.jobstart(cmd, {
     stdout_buffered = true,
     env = { GOFLAGS = "" },
     on_stdout = function(_, data)
       if not data then
-        callback(nil)
+        finish(nil)
         return
       end
       local output = table.concat(data, "\n")
       local decode_ok, result = pcall(vim.json.decode, output)
       if decode_ok and result and result.Version then
-        callback(result.Version)
+        finish(result.Version)
       else
-        callback(nil)
+        finish(nil)
       end
     end,
     on_exit = function(_, code)
       if code ~= 0 then
-        callback(nil)
+        finish(nil)
       end
     end,
   })
+
+  if job_id <= 0 then
+    finish(nil)
+  end
 end
 
 ---Get cached update info.

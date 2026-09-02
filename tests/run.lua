@@ -245,6 +245,42 @@ test("checker compares versions and prereleases correctly", function()
   )
 end)
 
+test("checker completes when latest version job fails to start", function()
+  local glaze = reset_glaze()
+  local checker = require("glaze.checker")
+  local original_jobstart = vim.fn.jobstart
+  local original_readfile = vim.fn.readfile
+  local original_writefile = vim.fn.writefile
+
+  local write_calls = 0
+  vim.fn.jobstart = function()
+    return -1
+  end
+  vim.fn.readfile = function()
+    return {}
+  end
+  vim.fn.writefile = function()
+    write_calls = write_calls + 1
+    return 0
+  end
+
+  glaze.setup({ auto_check = { enabled = false }, auto_install = { enabled = false }, go_cmd = { "go" } })
+  glaze.register("fake-glaze-binary", "example.com/fake/glaze")
+  checker.check({ silent = true })
+  vim.wait(50)
+
+  vim.fn.jobstart = original_jobstart
+  vim.fn.readfile = original_readfile
+  vim.fn.writefile = original_writefile
+
+  assert_eq(checker._checking, false, "failed job start should not leave checker running")
+  assert_eq(write_calls, 1, "finished check should persist state once")
+
+  local info = checker.get_update_info()["fake-glaze-binary"]
+  assert_truthy(info ~= nil, "failed check should still record update info")
+  assert_eq(info.has_update, false, "failed check should not report an update")
+end)
+
 for _, case in ipairs(results) do
   local ok, err = pcall(case.fn)
   if not ok then
