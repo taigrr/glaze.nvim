@@ -169,6 +169,24 @@ local function write_state(state)
   vim.fn.writefile({ json }, STATE_FILE)
 end
 
+---@param update_info table<string, GlazeUpdateInfo>
+---@param binaries table<string, GlazeBinary>
+---@return table<string, GlazeUpdateInfo>
+local function registered_update_info(update_info, binaries)
+  local registered = {}
+  for name, info in pairs(update_info or {}) do
+    if binaries[name] then
+      registered[name] = {
+        name = name,
+        installed_version = info.installed_version,
+        latest_version = info.latest_version,
+        has_update = info.has_update or false,
+      }
+    end
+  end
+  return registered
+end
+
 ---Get the frequency in seconds from config.
 ---@return number seconds
 local function get_frequency_seconds()
@@ -359,6 +377,7 @@ function M.check(opts)
   M._checking = true
   local updates_found = 0
   local remaining = vim.tbl_count(binaries)
+  M._update_info = {}
   for name, binary in pairs(binaries) do
     local info = {
       name = name,
@@ -442,22 +461,15 @@ end
 
 ---Auto-check if enough time has passed since last check.
 function M.auto_check()
+  local glaze = require("glaze")
+  local binaries = glaze.binaries()
   local state = read_state()
   local last_check = state.last_check or 0
   local now = os.time()
   local freq = get_frequency_seconds()
 
   -- Load cached update info
-  if state.update_info then
-    for name, info in pairs(state.update_info) do
-      M._update_info[name] = {
-        name = name,
-        installed_version = info.installed_version,
-        latest_version = info.latest_version,
-        has_update = info.has_update or false,
-      }
-    end
-  end
+  M._update_info = registered_update_info(state.update_info or {}, binaries)
 
   if (now - last_check) >= freq then
     M.check({ silent = true })

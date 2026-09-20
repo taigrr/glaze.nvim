@@ -230,9 +230,11 @@ function M.render()
   -- Count updates available (only binaries with has_update = true)
   local updates_available = 0
   local update_info = checker.get_update_info()
-  for _, info in pairs(update_info) do
+  for name, info in pairs(update_info) do
     if info.has_update then
-      updates_available = updates_available + 1
+      if binaries[name] then
+        updates_available = updates_available + 1
+      end
     end
   end
 
