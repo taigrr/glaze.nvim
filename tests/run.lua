@@ -245,6 +245,84 @@ test("checker compares versions and prereleases correctly", function()
   )
 end)
 
+test("checker completes when latest version job fails to start", function()
+  local glaze = reset_glaze()
+  local checker = require("glaze.checker")
+  local original_jobstart = vim.fn.jobstart
+  local original_readfile = vim.fn.readfile
+  local original_writefile = vim.fn.writefile
+
+  local write_calls = 0
+  vim.fn.jobstart = function()
+    return -1
+  end
+  vim.fn.readfile = function()
+    return {}
+  end
+  vim.fn.writefile = function()
+    write_calls = write_calls + 1
+    return 0
+  end
+
+  glaze.setup({ auto_check = { enabled = false }, auto_install = { enabled = false }, go_cmd = { "go" } })
+  glaze.register("fake-glaze-binary", "example.com/fake/glaze")
+  checker.check({ silent = true })
+  vim.wait(50)
+
+  vim.fn.jobstart = original_jobstart
+  vim.fn.readfile = original_readfile
+  vim.fn.writefile = original_writefile
+
+  assert_eq(checker._checking, false, "failed job start should not leave checker running")
+  assert_eq(write_calls, 1, "finished check should persist state once")
+
+  local info = checker.get_update_info()["fake-glaze-binary"]
+  assert_truthy(info ~= nil, "failed check should still record update info")
+  assert_eq(info.has_update, false, "failed check should not report an update")
+end)
+
+test("checker ignores cached update info for unregistered binaries", function()
+  local glaze = reset_glaze()
+  local checker = require("glaze.checker")
+  local original_readfile = vim.fn.readfile
+  local original_writefile = vim.fn.writefile
+
+  local cached_state = vim.json.encode({
+    last_check = os.time(),
+    update_info = {
+      active = {
+        installed_version = "v1.0.0",
+        latest_version = "v1.1.0",
+        has_update = true,
+      },
+      stale = {
+        installed_version = "v1.0.0",
+        latest_version = "v9.9.9",
+        has_update = true,
+      },
+    },
+  })
+
+  vim.fn.readfile = function()
+    return { cached_state }
+  end
+  vim.fn.writefile = function()
+    error("auto_check should not write when frequency has not elapsed")
+  end
+
+  glaze.setup({ auto_check = { enabled = false }, auto_install = { enabled = false } })
+  glaze.register("active", "example.com/active")
+  checker.auto_check()
+
+  vim.fn.readfile = original_readfile
+  vim.fn.writefile = original_writefile
+
+  local info = checker.get_update_info()
+  assert_truthy(info.active ~= nil, "registered cached update info should load")
+  assert_eq(info.active.has_update, true, "registered update flag should be preserved")
+  assert_eq(info.stale, nil, "unregistered cached update info should be ignored")
+end)
+
 for _, case in ipairs(results) do
   local ok, err = pcall(case.fn)
   if not ok then

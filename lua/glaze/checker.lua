@@ -169,6 +169,24 @@ local function write_state(state)
   vim.fn.writefile({ json }, STATE_FILE)
 end
 
+---@param update_info table<string, GlazeUpdateInfo>
+---@param binaries table<string, GlazeBinary>
+---@return table<string, GlazeUpdateInfo>
+local function registered_update_info(update_info, binaries)
+  local registered = {}
+  for name, info in pairs(update_info or {}) do
+    if binaries[name] then
+      registered[name] = {
+        name = name,
+        installed_version = info.installed_version,
+        latest_version = info.latest_version,
+        has_update = info.has_update or false,
+      }
+    end
+  end
+  return registered
+end
+
 ---Get the frequency in seconds from config.
 ---@return number seconds
 local function get_frequency_seconds()
@@ -195,25 +213,38 @@ local function get_installed_version(name, callback)
     return
   end
 
-  vim.fn.jobstart({ "go", "version", "-m", bin_path }, {
+  local done = false
+  local function finish(version)
+    if done then
+      return
+    end
+    done = true
+    callback(version)
+  end
+
+  local job_id = vim.fn.jobstart({ "go", "version", "-m", bin_path }, {
     stdout_buffered = true,
     on_stdout = function(_, data)
       if not data then
-        callback(nil)
+        finish(nil)
         return
       end
       local output = table.concat(data, "\n")
       -- Parse "mod\tmodule/path\tv1.2.3\th1:..." or "path\tmodule/path"
       local version = output:match("\tmod\t[^\t]+\t(v[^\t%s]+)")
         or output:match("\tpath\t[^\n]+\n[^\t]*\tmod\t[^\t]+\t(v[^\t%s]+)")
-      callback(version)
+      finish(version)
     end,
     on_exit = function(_, code)
       if code ~= 0 then
-        callback(nil)
+        finish(nil)
       end
     end,
   })
+
+  if job_id <= 0 then
+    finish(nil)
+  end
 end
 
 ---Check for the latest version of a module using go list.
@@ -224,28 +255,41 @@ local function get_latest_version(url, callback)
   local cmd = vim.list_extend({}, glaze.config.go_cmd)
   vim.list_extend(cmd, { "list", "-m", "-json", url .. "@latest" })
 
-  vim.fn.jobstart(cmd, {
+  local done = false
+  local function finish(version)
+    if done then
+      return
+    end
+    done = true
+    callback(version)
+  end
+
+  local job_id = vim.fn.jobstart(cmd, {
     stdout_buffered = true,
     env = { GOFLAGS = "" },
     on_stdout = function(_, data)
       if not data then
-        callback(nil)
+        finish(nil)
         return
       end
       local output = table.concat(data, "\n")
       local decode_ok, result = pcall(vim.json.decode, output)
       if decode_ok and result and result.Version then
-        callback(result.Version)
+        finish(result.Version)
       else
-        callback(nil)
+        finish(nil)
       end
     end,
     on_exit = function(_, code)
       if code ~= 0 then
-        callback(nil)
+        finish(nil)
       end
     end,
   })
+
+  if job_id <= 0 then
+    finish(nil)
+  end
 end
 
 ---Get cached update info.
@@ -333,6 +377,7 @@ function M.check(opts)
   M._checking = true
   local updates_found = 0
   local remaining = vim.tbl_count(binaries)
+  M._update_info = {}
   for name, binary in pairs(binaries) do
     local info = {
       name = name,
@@ -416,22 +461,15 @@ end
 
 ---Auto-check if enough time has passed since last check.
 function M.auto_check()
+  local glaze = require("glaze")
+  local binaries = glaze.binaries()
   local state = read_state()
   local last_check = state.last_check or 0
   local now = os.time()
   local freq = get_frequency_seconds()
 
   -- Load cached update info
-  if state.update_info then
-    for name, info in pairs(state.update_info) do
-      M._update_info[name] = {
-        name = name,
-        installed_version = info.installed_version,
-        latest_version = info.latest_version,
-        has_update = info.has_update or false,
-      }
-    end
-  end
+  M._update_info = registered_update_info(state.update_info or {}, binaries)
 
   if (now - last_check) >= freq then
     M.check({ silent = true })
