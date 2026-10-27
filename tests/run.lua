@@ -198,6 +198,33 @@ test("runner marks failed job starts as errors", function()
   assert_eq(callback_result, false, "failed job start should notify callbacks with false")
 end)
 
+test("runner deduplicates names within and across install requests", function()
+  local glaze = reset_glaze()
+  local runner = require("glaze.runner")
+  local original_jobstart = vim.fn.jobstart
+  local started = 0
+
+  glaze.setup({ auto_check = { enabled = false }, auto_install = { enabled = false }, concurrency = 1 })
+  glaze.register("fake-a", "example.com/fake/a")
+  glaze.register("fake-b", "example.com/fake/b")
+  glaze.is_installed = function()
+    return false
+  end
+  vim.fn.jobstart = function()
+    started = started + 1
+    return started
+  end
+
+  runner.install({ "fake-a", "fake-a", "fake-b", "fake-b" }, { silent = true })
+  runner.install({ "fake-a", "fake-b" }, { silent = true })
+  vim.fn.jobstart = original_jobstart
+
+  assert_eq(#runner.tasks(), 2, "each binary should be queued only once")
+  assert_eq(started, 1, "concurrency limit should be respected")
+  assert_eq(runner.stats().running, 1, "one binary should be running")
+  assert_eq(runner.stats().pending, 1, "one distinct binary should be pending")
+end)
+
 test("runner prunes finished tasks on a new operation", function()
   local glaze = reset_glaze()
   local runner = require("glaze.runner")
