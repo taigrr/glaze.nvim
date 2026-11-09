@@ -191,6 +191,7 @@ local function run(names, mode, opts)
       end
     elseif not existing_names[name] and not (mode == "install" and glaze.is_installed(name)) then
       table.insert(binaries, binary)
+      existing_names[name] = true
     end
   end
 
