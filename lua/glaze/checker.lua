@@ -222,7 +222,9 @@ local function get_installed_version(name, callback)
     callback(version)
   end
 
-  local job_id = vim.fn.jobstart({ "go", "version", "-m", bin_path }, {
+  local cmd = vim.list_extend({}, glaze.config.go_cmd)
+  vim.list_extend(cmd, { "version", "-m", bin_path })
+  local job_id = vim.fn.jobstart(cmd, {
     stdout_buffered = true,
     on_stdout = function(_, data)
       if not data then
