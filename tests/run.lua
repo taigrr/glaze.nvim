@@ -272,6 +272,48 @@ test("checker compares versions and prereleases correctly", function()
   )
 end)
 
+test("checker preserves configured Go command for version checks", function()
+  local glaze = reset_glaze()
+  local checker = require("glaze.checker")
+  glaze.setup({
+    auto_check = { enabled = false },
+    auto_install = { enabled = false },
+    go_cmd = { "custom-go", "wrapper" },
+  })
+  glaze.register("fake-tool", "example.com/tool")
+  glaze.bin_path = function()
+    return "/tmp/fake-tool"
+  end
+
+  local original_jobstart = vim.fn.jobstart
+  local original_readfile = vim.fn.readfile
+  local original_writefile = vim.fn.writefile
+  local commands = {}
+  vim.fn.jobstart = function(cmd)
+    table.insert(commands, vim.deepcopy(cmd))
+    return -1
+  end
+  vim.fn.readfile = function()
+    return {}
+  end
+  vim.fn.writefile = function()
+    return 0
+  end
+
+  checker.check({ silent = true })
+  checker.refresh_version("fake-tool")
+  vim.fn.jobstart = original_jobstart
+  vim.fn.readfile = original_readfile
+  vim.fn.writefile = original_writefile
+
+  local installed_cmd = { "custom-go", "wrapper", "version", "-m", "/tmp/fake-tool" }
+  local latest_cmd = { "custom-go", "wrapper", "list", "-m", "-json", "example.com/tool@latest" }
+  assert_eq(vim.inspect(commands[1]), vim.inspect(installed_cmd), "check should use configured command")
+  assert_eq(vim.inspect(commands[2]), vim.inspect(latest_cmd), "latest lookup should use configured command")
+  assert_eq(vim.inspect(commands[3]), vim.inspect(installed_cmd), "refresh should use configured command")
+  assert_eq(#glaze.config.go_cmd, 2, "checker must not mutate configured command")
+end)
+
 test("checker completes when latest version job fails to start", function()
   local glaze = reset_glaze()
   local checker = require("glaze.checker")
